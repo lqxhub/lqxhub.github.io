@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /archives/
+Allow: /tags/
+Allow: /categories/
+Allow: /about/
+Allow: /guestbook/
+Allow: /others/
+Allow: /links/
+
+Sitemap: https://lqxhub.github.io/sitemap.xml

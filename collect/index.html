@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="VMjruSa65t78YFAAYTcAP0eo0rS5yYMwg-ADDSQKfPg">
+  <meta name="msvalidate.01" content="C538647907B2EAEBE650AAC7463E551F">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/source-code-pro@2.38.0/source-code-pro.min.css/css?family=Lato:300,300italic,400,400italic,700,700italic|Source Code Pro:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/pace-js@1/themes/blue/pace-theme-minimal.min.css">
+  <script src="//cdn.jsdelivr.net/npm/pace-js@1/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"lqxhub.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="技术goland由浅到深，入门Go语言Map实现原理 map 的扩容过程是怎样的 Go语言map底层源码理解(map的扩容) Golang三色标记、混合写屏障GC模式图文全分析 Golang三色标记+混合写屏障GC模式全分析 Golang 汇编入门知识总结 plan9 汇编入门 go channel tcptcp 四次挥手 阿里面试tcp三次握手 tcp滑动窗口 计算机网络面试题 tcp协议十五问">
+<meta property="og:type" content="website">
+<meta property="og:title" content="收藏">
+<meta property="og:url" content="https://lqxhub.github.io/collect/index.html">
+<meta property="og:site_name" content="QX 的笔记">
+<meta property="og:description" content="技术goland由浅到深，入门Go语言Map实现原理 map 的扩容过程是怎样的 Go语言map底层源码理解(map的扩容) Golang三色标记、混合写屏障GC模式图文全分析 Golang三色标记+混合写屏障GC模式全分析 Golang 汇编入门知识总结 plan9 汇编入门 go channel tcptcp 四次挥手 阿里面试tcp三次握手 tcp滑动窗口 计算机网络面试题 tcp协议十五问">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-04-12T14:06:38.000Z">
+<meta property="article:modified_time" content="2023-07-09T09:54:34.738Z">
+<meta property="article:author" content="QX">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://lqxhub.github.io/collect/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : false,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>收藏 | QX 的笔记
+</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="QX 的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">QX 的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">36</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">15</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">50</span></a>
+
+  </li>
+        <li class="menu-item menu-item-友链">
+
+    <a href="/links/" rel="section"><i class="fa fa-link fa-fw"></i>友链</a>
+
+  </li>
+        <li class="menu-item menu-item-收藏">
+
+    <a href="/collect/" rel="section"><i class="fa fa-archive fa-fw"></i>收藏</a>
+
+  </li>
+        <li class="menu-item menu-item-工具">
+
+    <a href="/tool/" rel="section"><i class="fa fa-heartbeat fa-fw"></i>工具</a>
+
+  </li>
+        <li class="menu-item menu-item-rss">
+
+    <a href="/atom.xml" rel="section"><i class="fa fa-rss fa-fw"></i>RSS</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/lqxhub" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+  
+  
+
+          <div class="content page posts-expand">
+            
+
+    
+    
+    
+    <div class="post-block" lang="zh-CN">
+      <header class="post-header">
+
+<h1 class="post-title" itemprop="name headline">收藏
+</h1>
+
+<div class="post-meta">
+  
+
+</div>
+
+</header>
+
+      
+      
+      
+      <div class="post-body">
+          <h2 id="技术"><a href="#技术" class="headerlink" title="技术"></a>技术</h2><h3 id="goland"><a href="#goland" class="headerlink" title="goland"></a>goland</h3><p><a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000039101378">由浅到深，入门Go语言Map实现原理</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.bookstack.cn/read/qcrao-Go-Questions/map-map%20%E7%9A%84%E6%89%A9%E5%AE%B9%E8%BF%87%E7%A8%8B%E6%98%AF%E6%80%8E%E6%A0%B7%E7%9A%84.md">map 的扩容过程是怎样的</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/xingyu666/p/15757960.html">Go语言map底层源码理解(map的扩容)</a></p>
+<p><a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000022030353">Golang三色标记、混合写屏障GC模式图文全分析</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.kancloud.cn/aceld/golang/1958308">Golang三色标记+混合写屏障GC模式全分析</a></p>
+<p><a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1692904">Golang 汇编入门知识总结</a></p>
+<p><a target="_blank" rel="noopener" href="https://xargin.com/plan9-assembly/">plan9 汇编入门</a></p>
+<p><a target="_blank" rel="noopener" href="https://draveness.me/golang/docs/part3-runtime/ch06-concurrency/golang-channel/">go channel</a></p>
+<h3 id="tcp"><a href="#tcp" class="headerlink" title="tcp"></a>tcp</h3><p><a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1624225?from=article.detail.1553669">tcp 四次挥手</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/liwei0526vip/p/14587300.html">阿里面试tcp三次握手</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/xiaolincoding/p/12732052.html">tcp滑动窗口</a></p>
+<p><a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000038526729">计算机网络面试题</a></p>
+<p><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/388704023">tcp协议十五问</a></p>
+<h3 id="mysql"><a href="#mysql" class="headerlink" title="mysql"></a>mysql</h3><p><a target="_blank" rel="noopener" href="https://tech.meituan.com/2014/08/20/innodb-lock.html">美团 Innodb中的事务隔离级别和锁的关系</a></p>
+<p><a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/1450773">mvcc 脏读幻读</a></p>
+<h3 id="redis"><a href="#redis" class="headerlink" title="redis"></a>redis</h3><p><a target="_blank" rel="noopener" href="https://tech.youzan.com/redisyuan-ma-jie-xi/">有赞redis源码分析</a><br><a target="_blank" rel="noopener" href="https://tech.meituan.com/2018/07/27/redis-rehash-practice-optimization.html">美团redis rehash</a></p>
+<h3 id="CA证书"><a href="#CA证书" class="headerlink" title="CA证书"></a>CA证书</h3><p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/guogangj/p/4118605.html">那些证书相关的玩意儿(SSL,X.509,PEM,DER,CRT,CER,KEY,CSR,P12等)</a></p>
+<h3 id="Nginx"><a href="#Nginx" class="headerlink" title="Nginx"></a>Nginx</h3><p><a target="_blank" rel="noopener" href="https://qoanty.github.io/2021/05/xray-nginx-sni/">Nginx SNI分流（端口复用）</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.orzlee.com/proxy/2021/04/13/nginx-sni-offload-port-multiplexing-uses-xray-vless-xtls.html">Nginx SNI 分流</a></p>
+<h3 id="透明代理"><a href="#透明代理" class="headerlink" title="透明代理"></a>透明代理</h3><p><a target="_blank" rel="noopener" href="https://ppzz.github.io/posts/5393/">Ubuntu 软路由: v2ray 与透明代理</a></p>
+<p><a target="_blank" rel="noopener" href="https://ksana410.github.io/2019/07/20/linux-router-02-install-debian-and-configure-forward/">Linux路由补完计划02 Debian安装及配置基础路由功能</a></p>
+<p><a target="_blank" rel="noopener" href="https://pengjiayou.com/debian-10-transparent-gateway/">使用 Debian 10 搭建旁路代理网关&#x2F;透明代理</a></p>
+<p><a target="_blank" rel="noopener" href="https://toutyrater.github.io/app/transparent_proxy.html">透明代理 v2ray配置</a></p>
+<h3 id="rocksdb"><a href="#rocksdb" class="headerlink" title="rocksdb"></a>rocksdb</h3><p><a target="_blank" rel="noopener" href="https://xiking.win/2018/12/05/rocksdb-tuning/">RocksDB参数调优</a></p>
+<p><a target="_blank" rel="noopener" href="https://kernelmaker.github.io/Rocksdb_dynamic">Rocksdb实现分析及优化 level_compaction_dynamic_level_bytes</a></p>
+<p><a target="_blank" rel="noopener" href="https://leviathan.vip/2018/03/05/Rocksdb%E7%9A%84Compact/">RocksDB 的 Compact</a></p>
+<p><a target="_blank" rel="noopener" href="https://gukaifeng.cn/posts/rocksdb-leveled-compaction/">RocksDB – Leveled Compaction</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.modb.pro/db/168829">RocksDB 参数调优指南</a></p>
+<p><a target="_blank" rel="noopener" href="http://alexstocks.github.io/html/rocksdb.html">RocksDB 笔记</a></p>
+<h2 id="玩"><a href="#玩" class="headerlink" title="玩"></a>玩</h2><p><a target="_blank" rel="noopener" href="https://zz123.com/">在线听歌</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.olevod.com/">欧乐影院</a></p>
+<p><a target="_blank" rel="noopener" href="https://xiaobaotv.net/index.php">小宝影视</a></p>
+
+      </div>
+      
+      
+      
+    </div>
+    
+
+    
+    
+    
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <!--关于我页面去掉左边栏-->
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8A%80%E6%9C%AF"><span class="nav-number">1.</span> <span class="nav-text">技术</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#goland"><span class="nav-number">1.1.</span> <span class="nav-text">goland</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#tcp"><span class="nav-number">1.2.</span> <span class="nav-text">tcp</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mysql"><span class="nav-number">1.3.</span> <span class="nav-text">mysql</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis"><span class="nav-number">1.4.</span> <span class="nav-text">redis</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CA%E8%AF%81%E4%B9%A6"><span class="nav-number">1.5.</span> <span class="nav-text">CA证书</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Nginx"><span class="nav-number">1.6.</span> <span class="nav-text">Nginx</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%8F%E6%98%8E%E4%BB%A3%E7%90%86"><span class="nav-number">1.7.</span> <span class="nav-text">透明代理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#rocksdb"><span class="nav-number">1.8.</span> <span class="nav-text">rocksdb</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%A9"><span class="nav-number">2.</span> <span class="nav-text">玩</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="QX"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">QX</p>
+  <div class="site-description" itemprop="description">QX的笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">50</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">36</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/lqxhub" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;lqxhub" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:lqxlucky@qq.com" title="E-Mail → mailto:lqxlucky@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">QX</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    <span title="站点总字数">74k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    <span title="站点阅读时长">4:29</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="//cdn.jsdelivr.net/gh/theme-next/theme-next-canvas-nest@1/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

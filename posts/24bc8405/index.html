@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="VMjruSa65t78YFAAYTcAP0eo0rS5yYMwg-ADDSQKfPg">
+  <meta name="msvalidate.01" content="C538647907B2EAEBE650AAC7463E551F">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/source-code-pro@2.38.0/source-code-pro.min.css/css?family=Lato:300,300italic,400,400italic,700,700italic|Source Code Pro:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/pace-js@1/themes/blue/pace-theme-minimal.min.css">
+  <script src="//cdn.jsdelivr.net/npm/pace-js@1/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"lqxhub.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="go 是自带gc的语言，会自动管理内存，不用像C&#x2F;C++那样，需要程序员手动释放内存，不用手动管理内存，就能少掉很多头发">
+<meta property="og:type" content="article">
+<meta property="og:title" content="go 使用 pprof 排查内存泄露">
+<meta property="og:url" content="https://lqxhub.github.io/posts/24bc8405/index.html">
+<meta property="og:site_name" content="QX 的笔记">
+<meta property="og:description" content="go 是自带gc的语言，会自动管理内存，不用像C&#x2F;C++那样，需要程序员手动释放内存，不用手动管理内存，就能少掉很多头发">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lqxhub.github.io/posts/24bc8405/3622259-4f43c913680427e5.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/24bc8405/3622259-907bb5ac613c504a.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/24bc8405/3622259-9e9641988f601903.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/24bc8405/3622259-7d29e861c224e51b.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/24bc8405/3622259-58966e5ea8aaecf5.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/24bc8405/3622259-f5dba243c2239857.webp">
+<meta property="article:published_time" content="2021-03-14T05:58:27.000Z">
+<meta property="article:modified_time" content="2023-07-09T09:54:34.722Z">
+<meta property="article:author" content="QX">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="pprof">
+<meta property="article:tag" content="内存">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lqxhub.github.io/posts/24bc8405/3622259-4f43c913680427e5.webp">
+
+<link rel="canonical" href="https://lqxhub.github.io/posts/24bc8405/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>go 使用 pprof 排查内存泄露 | QX 的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="QX 的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">QX 的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">36</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">15</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">50</span></a>
+
+  </li>
+        <li class="menu-item menu-item-友链">
+
+    <a href="/links/" rel="section"><i class="fa fa-link fa-fw"></i>友链</a>
+
+  </li>
+        <li class="menu-item menu-item-收藏">
+
+    <a href="/collect/" rel="section"><i class="fa fa-archive fa-fw"></i>收藏</a>
+
+  </li>
+        <li class="menu-item menu-item-工具">
+
+    <a href="/tool/" rel="section"><i class="fa fa-heartbeat fa-fw"></i>工具</a>
+
+  </li>
+        <li class="menu-item menu-item-rss">
+
+    <a href="/atom.xml" rel="section"><i class="fa fa-rss fa-fw"></i>RSS</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/lqxhub" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://lqxhub.github.io/posts/24bc8405/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="QX">
+      <meta itemprop="description" content="QX的笔记">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="QX 的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          go 使用 pprof 排查内存泄露
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-03-14 13:58:27" itemprop="dateCreated datePublished" datetime="2021-03-14T13:58:27+08:00">2021-03-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-07-09 17:54:34" itemprop="dateModified" datetime="2023-07-09T17:54:34+08:00">2023-07-09</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/go/" itemprop="url" rel="index"><span itemprop="name">go</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>1.8k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>7 分钟</span>
+            </span>
+          
+          
+          
+          
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>go 是自带gc的语言，会自动管理内存，不用像C&#x2F;C++那样，需要程序员手动释放内存，不用手动管理内存，就能少掉很多头发</p>
+<span id="more"></span>
+
+<p><img src="/posts/24bc8405/3622259-4f43c913680427e5.webp"></p>
+<p>go的GC会自动管理内存，但是这不代表go程序就不会内存泄露了。 go常见产生内存泄露的原因就是<code>goroutine</code>没有结束，简单说就是goroutine 被阻塞了，这样就会导致goroutine引用的内存不被GC回收，也就导致了内存泄露。<br>当然产生内存泄露的原因还有别的，只是暂时我还没有遇到。不管什么原因产生的内存泄露，最终都是因为异常的引用，导致该被回收的内存没有被gc 回收掉</p>
+<h2 id="起因"><a href="#起因" class="headerlink" title="起因"></a>起因</h2><p>说起go内存泄露分析，还要从年前的一次程序压测说起。我用一个测试程序压测我们游戏的一些数据，大约开了3000个tcp连接到游戏。游戏数据没有问题，但是当测试结束后，发现游戏的Gateway内存占用一直没有下降。本能的让我想起了是不是内存泄露了。马上用pprof分析了一下内存，发现果然是内存泄露了。</p>
+<p>因为时公司代码，不方便拿出了分析，大体说一下原因吧</p>
+<p>Gateway是一个读写分离的tcp服务，也就是每一个连接都要有两个goroutine，一个读，一个写。</p>
+<p>但是当tcp连接断开时，因为时序问题，导致goroutine阻塞了，一直没有结束，就是导致了相关联的内存没有释放。</p>
+<p>因为时公司代码，不能随便贴出来，这次就自己写个简单的demo模拟一下吧</p>
+<p>因为go 自带的pprof 只能展示文字，不太明显，所有先安装一个可视化插件 <strong>graphviz</strong> <a target="_blank" rel="noopener" href="https://www.graphviz.org/download/">传送门</a><br>linux上可以直接通过 <code>apt</code> 或者 <code>yum</code> 安装就行了。<br>windows上去网站下一个就好了，我下载 <code>.msi</code> 格式的安装后不能用，重新下了一个 压缩包，解压后把 <code>bin</code> 目录配置到环境变量的 <code>path</code> 中就可以使用了</p>
+<h2 id="开始"><a href="#开始" class="headerlink" title="开始"></a>开始</h2><p>写一个简单的demo 模拟一下内存泄露</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;math/rand&quot;</span></span><br><span class="line">    <span class="string">&quot;net/http&quot;</span></span><br><span class="line">    _ <span class="string">&quot;net/http/pprof&quot;</span></span><br><span class="line">    <span class="string">&quot;sync&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        http.ListenAndServe(<span class="string">&quot;0.0.0.0:8090&quot;</span>, <span class="literal">nil</span>)</span><br><span class="line">    &#125;()</span><br><span class="line"></span><br><span class="line">    c := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;)</span><br><span class="line">    <span class="keyword">var</span> wg sync.WaitGroup</span><br><span class="line">    wg.Add(<span class="number">1</span>)</span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">10000</span>; i++ &#123;</span><br><span class="line">        <span class="keyword">go</span> one(c)</span><br><span class="line">    &#125;</span><br><span class="line">    wg.Wait()</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">one</span><span class="params">(c <span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;)</span></span> &#123;</span><br><span class="line">    <span class="keyword">var</span> a []<span class="type">int64</span></span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">10000</span>; i++ &#123;</span><br><span class="line">        a = <span class="built_in">append</span>(a, rand.Int63())</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &lt;-c</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>程序很简单，在 for 循环中开启 1000 个协程，每个协程中往切片中append 1000个数据。<br>用一个channel模拟协程阻塞，这样就会导致goroutine不会结束。</p>
+<h3 id="使用go再带的pprof查看"><a href="#使用go再带的pprof查看" class="headerlink" title="使用go再带的pprof查看"></a>使用go再带的pprof查看</h3><p>代码中监听了 <strong>8090</strong> 端口，在浏览器中输入 <code>http://127.0.0.1:8090/debug/pprof/</code><br><img src="/posts/24bc8405/3622259-907bb5ac613c504a.webp"></p>
+<p>下面都有解释，就不用详细介绍了，挑一两个说一下</p>
+<ul>
+<li>allocs : 程序运行期间，所有内存分配的样本</li>
+<li>heap : 当前活动对象的内存分配采样</li>
+<li>guroutine : 当前所有协程的堆栈跟踪</li>
+</ul>
+<p>可以看到，当前的程序总共有10005个协程，21次堆内存分配，说明我们的协程是被阻塞的。</p>
+<h3 id="使用graphviz查看"><a href="#使用graphviz查看" class="headerlink" title="使用graphviz查看"></a>使用graphviz查看</h3><p>在命令行中，在Windows中可以使用 powerShell<br>输入 <code>go tool pprof -http :8081 http://127.0.0.1:8090/debug/pprof/heap</code></p>
+<p>会在浏览器中打开<img src="/posts/24bc8405/3622259-9e9641988f601903.webp"></p>
+<p>这就是当前 <strong>heap</strong> 采样图<br>可以在 <strong>VIEW</strong> 中切换不同的显示方式</p>
+<p>图中方块越大便是占用的内存越多，方块中连线越粗表示耗时越多</p>
+<h2 id="内存泄露误区"><a href="#内存泄露误区" class="headerlink" title="内存泄露误区"></a>内存泄露误区</h2><p>我在排查内存泄露时，当我把goroutine阻塞解决后，通过linux 的 <strong>top</strong> 命令查看Gateway内存占用时，发现内存没有降下来，一时让我陷入困惑，为啥goroutine 都结束了，为啥内存还不释放呢？直到我在网上找到了这篇文章 <a target="_blank" rel="noopener" href="https://colobu.com/2019/08/28/go-memory-leak-i-dont-think-so/">传送门</a><br>这位大神写的golang 相关的文章，是目前我在网上找到的最牛逼的之一，文章不光有深度，而且通俗易懂。</p>
+<h3 id="重新验证"><a href="#重新验证" class="headerlink" title="重新验证"></a>重新验证</h3><p>修改上面的代码</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;math/rand&quot;</span></span><br><span class="line">    <span class="string">&quot;net/http&quot;</span></span><br><span class="line">    _ <span class="string">&quot;net/http/pprof&quot;</span></span><br><span class="line">    <span class="string">&quot;sync&quot;</span></span><br><span class="line">    <span class="string">&quot;time&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        http.ListenAndServe(<span class="string">&quot;0.0.0.0:8090&quot;</span>, <span class="literal">nil</span>)</span><br><span class="line">    &#125;()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">var</span> wg sync.WaitGroup</span><br><span class="line">    wg.Add(<span class="number">1</span>)</span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">10000</span>; i++ &#123;</span><br><span class="line">        <span class="keyword">go</span> one()</span><br><span class="line">    &#125;</span><br><span class="line">    wg.Wait()</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">one</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">var</span> a []<span class="type">int64</span></span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">10000</span>; i++ &#123;</span><br><span class="line">        a = <span class="built_in">append</span>(a, rand.Int63())</span><br><span class="line">    &#125;</span><br><span class="line">    time.Sleep(time.Second * <span class="number">1</span>)</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>现在 go 出来的的函数 <code>one</code> 不再一直阻塞，而是只会阻塞5秒</p>
+<p>把程序运行起来看一下</p>
+<p>等一段时间后，发现goroutine数量已经下来了，说明阻塞的协程都已经结束了，如图<br><img src="/posts/24bc8405/3622259-7d29e861c224e51b.webp"></p>
+<p>但是通过任务管理器中，看到程序还是占用着大量的内存<br><img src="/posts/24bc8405/3622259-58966e5ea8aaecf5.webp" alt="任务管理器"></p>
+<p>这时点击 <strong>heap</strong> 查看具体的堆内存情况，拉到最低下，看到一堆参数</p>
+<p><img src="/posts/24bc8405/3622259-f5dba243c2239857.webp"></p>
+<p>参数很多，但是重点关注被框出来的那几个就好了，详细的分析在大神的文章中有分析，在go的库文件中也能找到，里面有详细的注释。<br>路径 <code>src-&gt;runtime-&gt;mstats.go</code> 文件中有 <strong>MemStats</strong> 的定义和注释</p>
+<p>这些参数的单位都是字节</p>
+<ul>
+<li>TotalAlloc : 所有对象分配的总和，整个程序运行期间，只增不减</li>
+<li>HeapAlloc : 分配的堆对象的字节数，包括可访问的对象和未被GC回收的不可访问的对象，这个值会动态变化，分配对象时增加，回收对象后减少</li>
+<li>HeapIdle : 闲置的span中的字节数，这些span中已经没有对象了（不用了），但是现在还没有还给操作系统，这些span可以重新用来分配heap和stack。HeapIdle 减去 HeapReleased 的值可以当作 “可以返回到操作系统但由运行时保留的内存量”，也就是说，go的runtime可以在不像操作系统申请内存的情况下，也可以分配heap空间，这样可以提高程序性能</li>
+<li>HeapInuse : 正在使用的span的字节大小</li>
+<li>HeapReleased : 是返还给操作系统的物理内存的字节数</li>
+</ul>
+<p>回到我们的测试程序中，当所有的goroutine都结束时，GC会开始回收切片，但是被回收的内存不会直接换给操作系统，而是由go的runtime暂时保管（也就是 <strong>HeapIdle</strong> 值会变大），接下来如果再次需要分配空间，go的runtime可以不向操作系统申请内存，直接从自己保管的闲置内存中分配，这样可以提高程序性能。至于GO的runtime什么时候把这部分内存还给操作系统，不同的分配策略和不同的系统不太一样，这个有点深，我还没有深入研究这些。不过 <a target="_blank" rel="noopener" href="https://colobu.com/2019/08/28/go-memory-leak-i-dont-think-so/">传送门</a> 的文中有介绍 <strong>MADV_FREE</strong> 有兴趣可以自己学习一下</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li>go 虽然有GC，但是使用不当也会导致内存泄露</li>
+<li>不同的操作系统和不用策略，会导致go程序的内存已经被回收了，但是没有及时的归还给操作系统</li>
+</ul>
+<p>由于水平有限，文中如有谬处，还请在评论区不吝赐教</p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>QX
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://lqxhub.github.io/posts/24bc8405/" title="go 使用 pprof 排查内存泄露">https://lqxhub.github.io/posts/24bc8405/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+  <li class="post-copyright-license">
+    <strong>暂时还懒得去弄评论区，有问题欢迎 <a href="mailto:lqxlucky@qq.com" title="lqxlucky@qq.com" rel="noopener" target="_blank">邮件</a> 交流</strong>
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/go/" rel="tag"><i class="fa fa-tag"></i> go</a>
+              <a href="/tags/pprof/" rel="tag"><i class="fa fa-tag"></i> pprof</a>
+              <a href="/tags/%E5%86%85%E5%AD%98/" rel="tag"><i class="fa fa-tag"></i> 内存</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/497a7ebf/" rel="prev" title="linux下通过rpath解决cmake动态编译后找不到动态链接库问题">
+      <i class="fa fa-chevron-left"></i> linux下通过rpath解决cmake动态编译后找不到动态链接库问题
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/posts/91655bdf/" rel="next" title="linux下 C++ 使用 epoll 多路复用 实现高性能的tcpserver">
+      linux下 C++ 使用 epoll 多路复用 实现高性能的tcpserver <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <!--关于我页面去掉左边栏-->
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B5%B7%E5%9B%A0"><span class="nav-number">1.</span> <span class="nav-text">起因</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%80%E5%A7%8B"><span class="nav-number">2.</span> <span class="nav-text">开始</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8go%E5%86%8D%E5%B8%A6%E7%9A%84pprof%E6%9F%A5%E7%9C%8B"><span class="nav-number">2.1.</span> <span class="nav-text">使用go再带的pprof查看</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8graphviz%E6%9F%A5%E7%9C%8B"><span class="nav-number">2.2.</span> <span class="nav-text">使用graphviz查看</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2%E8%AF%AF%E5%8C%BA"><span class="nav-number">3.</span> <span class="nav-text">内存泄露误区</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8D%E6%96%B0%E9%AA%8C%E8%AF%81"><span class="nav-number">3.1.</span> <span class="nav-text">重新验证</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="QX"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">QX</p>
+  <div class="site-description" itemprop="description">QX的笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">50</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">36</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/lqxhub" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;lqxhub" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:lqxlucky@qq.com" title="E-Mail → mailto:lqxlucky@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">QX</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    <span title="站点总字数">74k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    <span title="站点阅读时长">4:29</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="//cdn.jsdelivr.net/gh/theme-next/theme-next-canvas-nest@1/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

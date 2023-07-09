@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="VMjruSa65t78YFAAYTcAP0eo0rS5yYMwg-ADDSQKfPg">
+  <meta name="msvalidate.01" content="C538647907B2EAEBE650AAC7463E551F">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/source-code-pro@2.38.0/source-code-pro.min.css/css?family=Lato:300,300italic,400,400italic,700,700italic|Source Code Pro:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/pace-js@1/themes/blue/pace-theme-minimal.min.css">
+  <script src="//cdn.jsdelivr.net/npm/pace-js@1/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"lqxhub.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="工作中经常需要写shell脚本来处理一些重复的东西，使用脚本自动编译，使用脚本多机器传输文件。 因为不是天天写shell，只是用到的时候写一个，再加上脚本中的if的判断条件有点多，容易忘记，所以做个备忘录，以备不时之需">
+<meta property="og:type" content="article">
+<meta property="og:title" content="linux shell 脚本 常用的if判断条件">
+<meta property="og:url" content="https://lqxhub.github.io/posts/6cd27815/index.html">
+<meta property="og:site_name" content="QX 的笔记">
+<meta property="og:description" content="工作中经常需要写shell脚本来处理一些重复的东西，使用脚本自动编译，使用脚本多机器传输文件。 因为不是天天写shell，只是用到的时候写一个，再加上脚本中的if的判断条件有点多，容易忘记，所以做个备忘录，以备不时之需">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-03-12T16:00:00.000Z">
+<meta property="article:modified_time" content="2023-07-09T09:54:34.726Z">
+<meta property="article:author" content="QX">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="shell">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://lqxhub.github.io/posts/6cd27815/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>linux shell 脚本 常用的if判断条件 | QX 的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="QX 的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">QX 的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">36</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">15</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">50</span></a>
+
+  </li>
+        <li class="menu-item menu-item-友链">
+
+    <a href="/links/" rel="section"><i class="fa fa-link fa-fw"></i>友链</a>
+
+  </li>
+        <li class="menu-item menu-item-收藏">
+
+    <a href="/collect/" rel="section"><i class="fa fa-archive fa-fw"></i>收藏</a>
+
+  </li>
+        <li class="menu-item menu-item-工具">
+
+    <a href="/tool/" rel="section"><i class="fa fa-heartbeat fa-fw"></i>工具</a>
+
+  </li>
+        <li class="menu-item menu-item-rss">
+
+    <a href="/atom.xml" rel="section"><i class="fa fa-rss fa-fw"></i>RSS</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/lqxhub" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://lqxhub.github.io/posts/6cd27815/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="QX">
+      <meta itemprop="description" content="QX的笔记">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="QX 的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          linux shell 脚本 常用的if判断条件
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-03-13 00:00:00" itemprop="dateCreated datePublished" datetime="2021-03-13T00:00:00+08:00">2021-03-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-07-09 17:54:34" itemprop="dateModified" datetime="2023-07-09T17:54:34+08:00">2023-07-09</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/linux/" itemprop="url" rel="index"><span itemprop="name">linux</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>810</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>3 分钟</span>
+            </span>
+          
+          
+          
+          
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>工作中经常需要写shell脚本来处理一些重复的东西，使用脚本自动编译，使用脚本多机器传输文件。</p>
+<p>因为不是天天写shell，只是用到的时候写一个，再加上脚本中的if的判断条件有点多，容易忘记，所以做个备忘录，以备不时之需</p>
+<span id="more"></span>
+
+<h3 id="先说一下-if-表达式的基本语法"><a href="#先说一下-if-表达式的基本语法" class="headerlink" title="先说一下 if 表达式的基本语法"></a>先说一下 if 表达式的基本语法</h3><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">if [ command ]; then</span><br><span class="line">   符合该条件执行的语句</span><br><span class="line">fi</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">if [ command ];then</span><br><span class="line">   符合该条件执行的语句</span><br><span class="line">elif [ command ];then</span><br><span class="line">   符合该条件执行的语句</span><br><span class="line">else</span><br><span class="line">   符合该条件执行的语句</span><br><span class="line">fi</span><br></pre></td></tr></table></figure>
+<p><strong>注意：</strong></p>
+<ol>
+<li>if 条件 要以 <code>fi</code> 结束</li>
+<li><code>[]</code> if语句中 和 表达式要注意空格</li>
+<li><code>then</code> 和 <code>fi</code> 是分开的语句。如果要在同一行里面输入，则需要用分号将他们隔开</li>
+<li>使用 <code>-z</code> 或者 <code>-n</code> 来检查长度的时候，没有定义的变量也为0</li>
+</ol>
+<h2 id="下面是常用表达式"><a href="#下面是常用表达式" class="headerlink" title="下面是常用表达式"></a>下面是常用表达式</h2><h3 id="数字判断"><a href="#数字判断" class="headerlink" title="数字判断"></a>数字判断</h3><table>
+<thead>
+<tr>
+<th>表达式</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>int1 -eq int2</td>
+<td>两数相等为真</td>
+</tr>
+<tr>
+<td>int1 -ne int2</td>
+<td>两数不等为真</td>
+</tr>
+<tr>
+<td>int1 -gt int2</td>
+<td>int1大于int2为真</td>
+</tr>
+<tr>
+<td>int1 -ge int2</td>
+<td>int1大于等于int2为真</td>
+</tr>
+<tr>
+<td>int1 -lt int2</td>
+<td>int1小于int2为真</td>
+</tr>
+<tr>
+<td>int1 -le int2</td>
+<td>int1小于等于int2为真</td>
+</tr>
+</tbody></table>
+<h3 id="逻辑相关"><a href="#逻辑相关" class="headerlink" title="逻辑相关"></a>逻辑相关</h3><table>
+<thead>
+<tr>
+<th>表达式</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-a</td>
+<td>与</td>
+</tr>
+<tr>
+<td>-o</td>
+<td>或</td>
+</tr>
+<tr>
+<td>!</td>
+<td>非</td>
+</tr>
+</tbody></table>
+<h3 id="字符串相关"><a href="#字符串相关" class="headerlink" title="字符串相关"></a>字符串相关</h3><table>
+<thead>
+<tr>
+<th>表达式</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>STRING</td>
+<td>当串str1为非空时为真</td>
+</tr>
+<tr>
+<td>-z STRING</td>
+<td>“STRING” 的长度为零则为真</td>
+</tr>
+<tr>
+<td>-n STRING</td>
+<td>“STRING” 的长度为非零 non-zero则为真</td>
+</tr>
+<tr>
+<td>STRING1 &#x3D;&#x3D; STRING2</td>
+<td>如果2个字符串相同则为真</td>
+</tr>
+<tr>
+<td>STRING1 !&#x3D; STRING2</td>
+<td>如果字符串不相等则为</td>
+</tr>
+</tbody></table>
+<h3 id="文件相关"><a href="#文件相关" class="headerlink" title="文件相关"></a>文件相关</h3><table>
+<thead>
+<tr>
+<th>表达式</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-a FILE</td>
+<td>如果 FILE 存在则为真</td>
+</tr>
+<tr>
+<td>-b FILE</td>
+<td>如果 FILE 存在且是一个块特殊文件则为真</td>
+</tr>
+<tr>
+<td>-c FILE</td>
+<td>如果 FILE 存在且是一个字特殊文件则为真</td>
+</tr>
+<tr>
+<td>-d FILE</td>
+<td>如果 FILE 存在且是一个目录则为真</td>
+</tr>
+<tr>
+<td>-e FILE</td>
+<td>如果 FILE 存在则为真</td>
+</tr>
+<tr>
+<td>-f FILE</td>
+<td>如果 FILE 存在且是一个普通文件则为真</td>
+</tr>
+<tr>
+<td>-g FILE</td>
+<td>如果 FILE 存在且已经设置了SGID则为真</td>
+</tr>
+<tr>
+<td>-h FILE</td>
+<td>如果 FILE 存在且是一个符号连接则为真</td>
+</tr>
+<tr>
+<td>-k FILE</td>
+<td>如果 FILE 存在且已经设置了粘制位则为真</td>
+</tr>
+<tr>
+<td>-p FILE</td>
+<td>如果 FILE 存在且是一个名字管道(F如果O)则为真</td>
+</tr>
+<tr>
+<td>-r FILE</td>
+<td>如果 FILE 存在且是可读的则为真</td>
+</tr>
+<tr>
+<td>-s FILE</td>
+<td>如果 FILE 存在且大小不为0则为真</td>
+</tr>
+<tr>
+<td>-t FD</td>
+<td>如果文件描述符 FD 打开且指向一个终端则为真</td>
+</tr>
+<tr>
+<td>-u FILE</td>
+<td>如果 FILE 存在且设置了SUID (set user ID)则为真</td>
+</tr>
+<tr>
+<td>-w FILE</td>
+<td>如果 FILE 如果 FILE 存在且是可写的则为真</td>
+</tr>
+<tr>
+<td>-x FILE</td>
+<td>如果 FILE 存在且是可执行的则为真</td>
+</tr>
+<tr>
+<td>-O FILE</td>
+<td>如果 FILE 存在且属有效用户ID则为真</td>
+</tr>
+<tr>
+<td>-G FILE</td>
+<td>如果 FILE 存在且属有效用户组则为真</td>
+</tr>
+<tr>
+<td>-L FILE</td>
+<td>如果 FILE 存在且是一个符号连接则为真</td>
+</tr>
+<tr>
+<td>-S FILE</td>
+<td>如果 FILE 存在且是一个套接字则为真</td>
+</tr>
+<tr>
+<td>FILE1 -ot FILE2</td>
+<td>如果 FILE1 比 FILE2 要老, 或者 FILE2 存在且 FILE1 不存在则为真</td>
+</tr>
+<tr>
+<td>FILE1 -ef FILE2</td>
+<td>如果 FILE1 和 FILE2 指向相同的设备和节点号则为真</td>
+</tr>
+<tr>
+<td>-o OPTIONNAME</td>
+<td>如果 shell选项 “OPTIONNAME” 开启则为真</td>
+</tr>
+</tbody></table>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>QX
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://lqxhub.github.io/posts/6cd27815/" title="linux shell 脚本 常用的if判断条件">https://lqxhub.github.io/posts/6cd27815/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+  <li class="post-copyright-license">
+    <strong>暂时还懒得去弄评论区，有问题欢迎 <a href="mailto:lqxlucky@qq.com" title="lqxlucky@qq.com" rel="noopener" target="_blank">邮件</a> 交流</strong>
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/linux/" rel="tag"><i class="fa fa-tag"></i> linux</a>
+              <a href="/tags/shell/" rel="tag"><i class="fa fa-tag"></i> shell</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/1c1c3bd5/" rel="prev" title="通过汇编看golang函数的多返回值">
+      <i class="fa fa-chevron-left"></i> 通过汇编看golang函数的多返回值
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/posts/19d697e6/" rel="next" title="golang造轮子 封装一个简单的http client">
+      golang造轮子 封装一个简单的http client <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <!--关于我页面去掉左边栏-->
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%88%E8%AF%B4%E4%B8%80%E4%B8%8B-if-%E8%A1%A8%E8%BE%BE%E5%BC%8F%E7%9A%84%E5%9F%BA%E6%9C%AC%E8%AF%AD%E6%B3%95"><span class="nav-number">1.</span> <span class="nav-text">先说一下 if 表达式的基本语法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%8B%E9%9D%A2%E6%98%AF%E5%B8%B8%E7%94%A8%E8%A1%A8%E8%BE%BE%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">下面是常用表达式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%B0%E5%AD%97%E5%88%A4%E6%96%AD"><span class="nav-number">1.</span> <span class="nav-text">数字判断</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%BB%E8%BE%91%E7%9B%B8%E5%85%B3"><span class="nav-number">2.</span> <span class="nav-text">逻辑相关</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AD%97%E7%AC%A6%E4%B8%B2%E7%9B%B8%E5%85%B3"><span class="nav-number">3.</span> <span class="nav-text">字符串相关</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%96%87%E4%BB%B6%E7%9B%B8%E5%85%B3"><span class="nav-number">4.</span> <span class="nav-text">文件相关</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="QX"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">QX</p>
+  <div class="site-description" itemprop="description">QX的笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">50</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">15</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">36</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/lqxhub" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;lqxhub" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:lqxlucky@qq.com" title="E-Mail → mailto:lqxlucky@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">QX</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    <span title="站点总字数">74k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    <span title="站点阅读时长">4:29</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="//cdn.jsdelivr.net/gh/theme-next/theme-next-canvas-nest@1/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
