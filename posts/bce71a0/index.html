@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="Ts78qICcAFtPJZg7DfwjJYFH2BsbYh7ICe1k6xMb-C8">
+  <meta name="msvalidate.01" content="C538647907B2EAEBE650AAC7463E551F">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/source-code-pro@2.38.0/source-code-pro.min.css/css?family=Lato:300,300italic,400,400italic,700,700italic|Source Code Pro:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/pace-js@1/themes/blue/pace-theme-minimal.min.css">
+  <script src="//cdn.jsdelivr.net/npm/pace-js@1/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"lqxhub.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="去年写过两篇redis的源码分析文章（redis的watch和ACL），现在回头看，已经过去好久了。说起那两篇文章，收益还是挺大的。这周有时间了，继续学习redis的源码。先来看一下redis的网络处理。 本次的源码基于redis的 7.2 分支，不同版本下，一些细节可能会有差异。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="redis源码学习|网络">
+<meta property="og:url" content="https://lqxhub.github.io/posts/bce71a0/index.html">
+<meta property="og:site_name" content="QX 的笔记">
+<meta property="og:description" content="去年写过两篇redis的源码分析文章（redis的watch和ACL），现在回头看，已经过去好久了。说起那两篇文章，收益还是挺大的。这周有时间了，继续学习redis的源码。先来看一下redis的网络处理。 本次的源码基于redis的 7.2 分支，不同版本下，一些细节可能会有差异。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-01-28T12:10:27.000Z">
+<meta property="article:modified_time" content="2024-03-10T10:39:35.602Z">
+<meta property="article:author" content="QX">
+<meta property="article:tag" content="redis">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://lqxhub.github.io/posts/bce71a0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>redis源码学习|网络 | QX 的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="QX 的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">QX 的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">37</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">54</span></a>
+
+  </li>
+        <li class="menu-item menu-item-友链">
+
+    <a href="/links/" rel="section"><i class="fa fa-link fa-fw"></i>友链</a>
+
+  </li>
+        <li class="menu-item menu-item-收藏">
+
+    <a href="/collect/" rel="section"><i class="fa fa-archive fa-fw"></i>收藏</a>
+
+  </li>
+        <li class="menu-item menu-item-工具">
+
+    <a href="/tool/" rel="section"><i class="fa fa-heartbeat fa-fw"></i>工具</a>
+
+  </li>
+        <li class="menu-item menu-item-rss">
+
+    <a href="/atom.xml" rel="section"><i class="fa fa-rss fa-fw"></i>RSS</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/lqxhub" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://lqxhub.github.io/posts/bce71a0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="QX">
+      <meta itemprop="description" content="QX的笔记">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="QX 的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          redis源码学习|网络
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-01-28 20:10:27" itemprop="dateCreated datePublished" datetime="2024-01-28T20:10:27+08:00">2024-01-28</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-03-10 18:39:35" itemprop="dateModified" datetime="2024-03-10T18:39:35+08:00">2024-03-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.7k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>21 分钟</span>
+            </span>
+          
+          
+          
+          
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>去年写过两篇redis的源码分析文章（redis的watch和ACL），现在回头看，已经过去好久了。说起那两篇文章，收益还是挺大的。这周有时间了，继续学习redis的源码。先来看一下redis的网络处理。</p>
+<p>本次的源码基于redis的 <strong>7.2</strong> 分支，不同版本下，一些细节可能会有差异。</p>
+<span id="more"></span>
+
+<p>这篇文章因为篇幅所限，没法把redis网络读写的所有细节都分析到，只能把这个网络处理的大概流程走一遍。</p>
+<p>看完这篇文章，能对redis网络处理流程有个基本了解，能知道redis加入了多线程后，为什么还是单线程处理数据。能知道redis是如何实现适配不同系统下网络接口。</p>
+<p>先来写一下redis网络需要的一些数据结构。</p>
+<h3 id="数据结构："><a href="#数据结构：" class="headerlink" title="数据结构："></a>数据结构：</h3><ul>
+<li>redis可以支持多个平台（Linux，Unix），这两个平台的网络调用是不一样的，Linux中高性能的网络接口是<strong>epoll</strong>，Unix上是<strong>kqueue</strong>。因为版本的原因，在低版本的Linux内核中，epool也是不支持的，这时候就需要用到<strong>select</strong>。redis使用了 <strong>aeEvent</strong> 这个结构来封装了网络，实现了对不同网络接口的兼容。</li>
+</ul>
+<p>结构的定义在 <code>ae.h</code> 文件中 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/ae.h#L99-L111">aeEventLoop</a></p>
+<p><strong>aeEventLoop</strong> 是redis网络中，所有网络事件的管理器。我们知道，现在的网络一般都是通过多路复用来处理多个链接，多路复用的实现在不同的系统中有不同的实现，所有redis使用 <code>aeEventLoop</code> 的封装来实现不同平台的兼容。这个结构是全局唯一的，redis启动后完成初始化。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">aeEventLoop</span> &#123;</span></span><br><span class="line">    <span class="type">int</span> maxfd;   <span class="comment">/* highest file descriptor currently registered */</span></span><br><span class="line">    <span class="type">int</span> setsize; <span class="comment">/* max number of file descriptors tracked */</span></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> timeEventNextId;</span><br><span class="line">    aeFileEvent *events; <span class="comment">/* Registered events */</span></span><br><span class="line">    aeFiredEvent *fired; <span class="comment">/* Fired events */</span></span><br><span class="line">    aeTimeEvent *timeEventHead;</span><br><span class="line">    <span class="type">int</span> stop;</span><br><span class="line">    <span class="type">void</span> *apidata; <span class="comment">/* This is used for polling API specific data */</span></span><br><span class="line">    aeBeforeSleepProc *beforesleep;</span><br><span class="line">    aeBeforeSleepProc *aftersleep;</span><br><span class="line">    <span class="type">int</span> flags;</span><br><span class="line">&#125; aeEventLoop;</span><br></pre></td></tr></table></figure>
+<p><code>aeFileEvent</code> 和 <code>aeFiredEvent</code> 是处理网络事件的数组结构，<code>aeTimeEvent</code> 是处理redis定时回调的结构数组。</p>
+<ul>
+<li><code>aeFileEvent</code> 是注册到系统中的事件，在 epoll 中就是 <code>struct epoll_event</code> 结构。</li>
+<li><code>aeFiredEvent</code> 是这次要处理的事件。在 epoll 中就是 通过 <code>epoll_wait</code> 返回的事件。</li>
+<li><code>timeEventHead</code> 是定时器要处理的事件。</li>
+</ul>
+<p><strong>aeFileEvent</strong> 是redis中，多路复用的事件封装。每一个网络链接都会被包装成一个 <code>aeFileEvent</code> 对象，（因为在 Unix系列的系统中，万物皆是文件嘛，所有这里也就叫 <code>aeFileEvent</code>了），然后加入到 <code>aeEventLoop</code> 中，最后交给操作系统中的多路复用管理。当被管理的事件被触发后，会回调对应的函数，也就是 <code>rfileProc</code> 或者 <code>wfileProc</code> 函数指针，来完成操作。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">aeFileEvent</span> &#123;</span></span><br><span class="line">    <span class="type">int</span> mask; <span class="comment">/* one of AE_(READABLE|WRITABLE|BARRIER) */</span></span><br><span class="line">    aeFileProc *rfileProc;</span><br><span class="line">    aeFileProc *wfileProc;</span><br><span class="line">    <span class="type">void</span> *clientData;</span><br><span class="line">&#125; aeFileEvent;</span><br></pre></td></tr></table></figure>
+
+<p>网络处理的实现在 <code>ae.c</code> 中</p>
+<p>在<code>ae.c</code>中，通过宏定义，来实现对不同平台的兼容</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">ifdef</span> HAVE_EVPORT</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;ae_evport.c&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">    <span class="meta">#<span class="keyword">ifdef</span> HAVE_EPOLL</span></span><br><span class="line">    <span class="meta">#<span class="keyword">include</span> <span class="string">&quot;ae_epoll.c&quot;</span></span></span><br><span class="line">    <span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">        <span class="meta">#<span class="keyword">ifdef</span> HAVE_KQUEUE</span></span><br><span class="line">        <span class="meta">#<span class="keyword">include</span> <span class="string">&quot;ae_kqueue.c&quot;</span></span></span><br><span class="line">        <span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">        <span class="meta">#<span class="keyword">include</span> <span class="string">&quot;ae_select.c&quot;</span></span></span><br><span class="line">        <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">    <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br></pre></td></tr></table></figure>
+<p><a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/ae.c#L52-L64">ae.c#L52-L65</a><br>通过判断宏定义，然后include不同的 .c文件。</p>
+<p>这里可能有对C语言了解不深的同学可能会疑问，<code>include</code> 关键字不是用来包含头文件的吗，还能用来引入 .c文件吗？其实include是编译器的一个预处理指令，就是简单的把对应的文件里的所有内容，放到include的地方而已。</p>
+<p>打开 <code>ae_evport.c</code> <code>ae_epoll.c</code> <code>ae_kqueue.c</code> <code>ae_select.c</code> 这四个文件来看，对外暴露的函数接口都是一样的。只是在不同的平台上内部的处理不同。</p>
+<p>对外暴露了这些函数，来完成网络的处理</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//创建一个loop</span></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">aeApiCreate</span><span class="params">(aeEventLoop *eventLoop)</span></span><br><span class="line"><span class="comment">//设置loop的大小</span></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">aeApiResize</span><span class="params">(aeEventLoop *eventLoop, <span class="type">int</span> setsize)</span></span><br><span class="line"><span class="comment">//释放一个 loop</span></span><br><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">aeApiFree</span><span class="params">(aeEventLoop *eventLoop)</span></span><br><span class="line"><span class="comment">//添加一个 eventLoop</span></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">aeApiAddEvent</span><span class="params">(aeEventLoop *eventLoop, <span class="type">int</span> fd, <span class="type">int</span> mask)</span></span><br><span class="line"><span class="comment">//删除一个 eventLoop</span></span><br><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">aeApiDelEvent</span><span class="params">(aeEventLoop *eventLoop, <span class="type">int</span> fd, <span class="type">int</span> delmask)</span></span><br><span class="line"><span class="comment">//不同的网络处理中,返回需要处理的事件</span></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">aeApiPoll</span><span class="params">(aeEventLoop *eventLoop, <span class="keyword">struct</span> timeval *tvp)</span></span><br><span class="line"><span class="comment">//返回这个ae的名字,在epoll中就是返回 &quot;epoll&quot;</span></span><br><span class="line"><span class="type">static</span> <span class="type">char</span> *<span class="title function_">aeApiName</span><span class="params">(<span class="type">void</span>)</span></span><br></pre></td></tr></table></figure>
+
+<p>这里我们以Linux平台为主，所以使用的是 <code>ae_epoll.c</code>文件中的内容。这里先不展开分析每一个函数，因为这不是本次的重点。</p>
+<h3 id="启动网络服务"><a href="#启动网络服务" class="headerlink" title="启动网络服务"></a>启动网络服务</h3><p>基本的数据结构介绍完，下面开始启动网络服务</p>
+<h4 id="监听client"><a href="#监听client" class="headerlink" title="监听client"></a>监听client</h4><p>第一步是调用 <code>aeEventLoop *aeCreateEventLoop(int setsize)</code> 函数，创建 <code>aeEventLoop</code> 这个对象。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">aeEventLoop *<span class="title function_">aeCreateEventLoop</span><span class="params">(<span class="type">int</span> setsize)</span> &#123;</span><br><span class="line">    aeEventLoop *eventLoop;</span><br><span class="line">    <span class="type">int</span> i;</span><br><span class="line"></span><br><span class="line">    monotonicInit();    <span class="comment">/* just in case the calling app didn&#x27;t initialize */</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((eventLoop = zmalloc(<span class="keyword">sizeof</span>(*eventLoop))) == <span class="literal">NULL</span>) <span class="keyword">goto</span> err;</span><br><span class="line">    eventLoop-&gt;events = zmalloc(<span class="keyword">sizeof</span>(aeFileEvent)*setsize);</span><br><span class="line">    eventLoop-&gt;fired = zmalloc(<span class="keyword">sizeof</span>(aeFiredEvent)*setsize);</span><br><span class="line">    <span class="keyword">if</span> (eventLoop-&gt;events == <span class="literal">NULL</span> || eventLoop-&gt;fired == <span class="literal">NULL</span>) <span class="keyword">goto</span> err;</span><br><span class="line">    eventLoop-&gt;setsize = setsize;</span><br><span class="line">    eventLoop-&gt;timeEventHead = <span class="literal">NULL</span>;</span><br><span class="line">    eventLoop-&gt;timeEventNextId = <span class="number">0</span>;</span><br><span class="line">    eventLoop-&gt;stop = <span class="number">0</span>;</span><br><span class="line">    eventLoop-&gt;maxfd = <span class="number">-1</span>;</span><br><span class="line">    eventLoop-&gt;beforesleep = <span class="literal">NULL</span>;</span><br><span class="line">    eventLoop-&gt;aftersleep = <span class="literal">NULL</span>;</span><br><span class="line">    eventLoop-&gt;flags = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span> (aeApiCreate(eventLoop) == <span class="number">-1</span>) <span class="keyword">goto</span> err;</span><br><span class="line">    <span class="comment">/* Events with mask == AE_NONE are not set. So let&#x27;s initialize the</span></span><br><span class="line"><span class="comment">     * vector with it. */</span></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; setsize; i++)</span><br><span class="line">        eventLoop-&gt;events[i].mask = AE_NONE;</span><br><span class="line">    <span class="keyword">return</span> eventLoop;</span><br><span class="line"></span><br><span class="line">err:</span><br><span class="line">    <span class="keyword">if</span> (eventLoop) &#123;</span><br><span class="line">        zfree(eventLoop-&gt;events);</span><br><span class="line">        zfree(eventLoop-&gt;fired);</span><br><span class="line">        zfree(eventLoop);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里的处理逻辑比较简单，就是初始化 <code>aeEventLoop</code> 中的数据结构。如果中间出错了，就返回 <code>NULL</code></p>
+<p>这个在 <code>void initServer(void)</code> 函数中被调用。<br><a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L2622">aeCreateEventLoop</a></p>
+<p>创建一个<code>aeEventLoop</code> 并赋值给 <code>server</code>。再往上翻，最终的调用位置是 <code>main</code> 函数中的<a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L7298">initServer();</a></p>
+<p>在往下，还有一个比较重要的函数，通过调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L2711">aeCreateTimeEvent</a> 函数，完成定时器 对应的 <code>eventLoop</code> 的创建。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">long</span> <span class="type">long</span> <span class="title function_">aeCreateTimeEvent</span><span class="params">(aeEventLoop *eventLoop, <span class="type">long</span> <span class="type">long</span> milliseconds,</span></span><br><span class="line"><span class="params">        aeTimeProc *proc, <span class="type">void</span> *clientData,</span></span><br><span class="line"><span class="params">        aeEventFinalizerProc *finalizerProc)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> id = eventLoop-&gt;timeEventNextId++;</span><br><span class="line">    aeTimeEvent *te;</span><br><span class="line"></span><br><span class="line">    te = zmalloc(<span class="keyword">sizeof</span>(*te));</span><br><span class="line">    <span class="keyword">if</span> (te == <span class="literal">NULL</span>) <span class="keyword">return</span> AE_ERR;</span><br><span class="line">    te-&gt;id = id;</span><br><span class="line">    te-&gt;when = getMonotonicUs() + milliseconds * <span class="number">1000</span>;</span><br><span class="line">    te-&gt;timeProc = proc;</span><br><span class="line">    te-&gt;finalizerProc = finalizerProc;</span><br><span class="line">    te-&gt;clientData = clientData;</span><br><span class="line">    te-&gt;prev = <span class="literal">NULL</span>;</span><br><span class="line">    te-&gt;next = eventLoop-&gt;timeEventHead;</span><br><span class="line">    te-&gt;refcount = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span> (te-&gt;next)</span><br><span class="line">        te-&gt;next-&gt;prev = te;</span><br><span class="line">    eventLoop-&gt;timeEventHead = te;</span><br><span class="line">    <span class="keyword">return</span> id;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>都是常规的处理，注意一下传递进来的几个参数</p>
+<ul>
+<li><code>eventLoop</code> 是之前创建的 eventLoop对象</li>
+<li><code>proc</code> 是定时器触发时的回调函数</li>
+<li><code>milliseconds</code> 定时器触发的时间间隔</li>
+</ul>
+<p><a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L1260">proc</a> 函数的定义</p>
+<p>这里不详细展开了，就是redis中的一些定时操作。</p>
+<p>在 <code>main</code> 函数中继续往下，会看到 <code>initListeners();</code> 这个函数，中这里也能知道，这里创建 网络的监听</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">initListeners</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line">    <span class="comment">/* Setup listeners from server config for TCP/TLS/Unix */</span></span><br><span class="line">    <span class="type">int</span> conn_index;</span><br><span class="line">    connListener *listener;</span><br><span class="line">    <span class="comment">//判断是否需要监听普通的TCP</span></span><br><span class="line">    <span class="keyword">if</span> (server.port != <span class="number">0</span>) &#123;</span><br><span class="line">        conn_index = connectionIndexByType(CONN_TYPE_SOCKET);</span><br><span class="line">        <span class="keyword">if</span> (conn_index &lt; <span class="number">0</span>)</span><br><span class="line">            serverPanic(<span class="string">&quot;Failed finding connection listener of %s&quot;</span>, CONN_TYPE_SOCKET);</span><br><span class="line">        listener = &amp;server.listeners[conn_index];</span><br><span class="line">        listener-&gt;bindaddr = server.bindaddr;</span><br><span class="line">        listener-&gt;bindaddr_count = server.bindaddr_count;</span><br><span class="line">        listener-&gt;port = server.port;</span><br><span class="line">        listener-&gt;ct = connectionByType(CONN_TYPE_SOCKET);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//判断是否需要监听,如果需要,检查tls需要的配置是否正确</span></span><br><span class="line">    <span class="keyword">if</span> (server.tls_port || server.tls_replication || server.tls_cluster) &#123;</span><br><span class="line">        ConnectionType *ct_tls = connectionTypeTls();</span><br><span class="line">        <span class="keyword">if</span> (!ct_tls) &#123;</span><br><span class="line">            serverLog(LL_WARNING, <span class="string">&quot;Failed finding TLS support.&quot;</span>);</span><br><span class="line">            <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (connTypeConfigure(ct_tls, &amp;server.tls_ctx_config, <span class="number">1</span>) == C_ERR) &#123;</span><br><span class="line">            serverLog(LL_WARNING, <span class="string">&quot;Failed to configure TLS. Check logs for more info.&quot;</span>);</span><br><span class="line">            <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//判断是否需要监听 TLS的TCP</span></span><br><span class="line">    <span class="keyword">if</span> (server.tls_port != <span class="number">0</span>) &#123;</span><br><span class="line">        conn_index = connectionIndexByType(CONN_TYPE_TLS);</span><br><span class="line">        <span class="keyword">if</span> (conn_index &lt; <span class="number">0</span>)</span><br><span class="line">            serverPanic(<span class="string">&quot;Failed finding connection listener of %s&quot;</span>, CONN_TYPE_TLS);</span><br><span class="line">        listener = &amp;server.listeners[conn_index];</span><br><span class="line">        listener-&gt;bindaddr = server.bindaddr;</span><br><span class="line">        listener-&gt;bindaddr_count = server.bindaddr_count;</span><br><span class="line">        listener-&gt;port = server.tls_port;</span><br><span class="line">        listener-&gt;ct = connectionByType(CONN_TYPE_TLS);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//判断是否需要unixsocket</span></span><br><span class="line">    <span class="keyword">if</span> (server.unixsocket != <span class="literal">NULL</span>) &#123;</span><br><span class="line">        conn_index = connectionIndexByType(CONN_TYPE_UNIX);</span><br><span class="line">        <span class="keyword">if</span> (conn_index &lt; <span class="number">0</span>)</span><br><span class="line">            serverPanic(<span class="string">&quot;Failed finding connection listener of %s&quot;</span>, CONN_TYPE_UNIX);</span><br><span class="line">        listener = &amp;server.listeners[conn_index];</span><br><span class="line">        listener-&gt;bindaddr = &amp;server.unixsocket;</span><br><span class="line">        listener-&gt;bindaddr_count = <span class="number">1</span>;</span><br><span class="line">        listener-&gt;ct = connectionByType(CONN_TYPE_UNIX);</span><br><span class="line">        listener-&gt;priv = &amp;server.unixsocketperm; <span class="comment">/* Unix socket specified */</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* create all the configured listener, and add handler to start to accept */</span></span><br><span class="line">    <span class="type">int</span> listen_fds = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">0</span>; j &lt; CONN_TYPE_MAX; j++) &#123;</span><br><span class="line">        listener = &amp;server.listeners[j];</span><br><span class="line">        <span class="keyword">if</span> (listener-&gt;ct == <span class="literal">NULL</span>)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (connListen(listener) == C_ERR) &#123;</span><br><span class="line">            serverLog(LL_WARNING, <span class="string">&quot;Failed listening on port %u (%s), aborting.&quot;</span>, listener-&gt;port, listener-&gt;ct-&gt;get_type(<span class="literal">NULL</span>));</span><br><span class="line">            <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//创建新的连接处理事件</span></span><br><span class="line">        <span class="keyword">if</span> (createSocketAcceptHandler(listener, connAcceptHandler(listener-&gt;ct)) != C_OK)</span><br><span class="line">            serverPanic(<span class="string">&quot;Unrecoverable error creating %s listener accept handler.&quot;</span>, listener-&gt;ct-&gt;get_type(<span class="literal">NULL</span>));</span><br><span class="line"></span><br><span class="line">       listen_fds += listener-&gt;count;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (listen_fds == <span class="number">0</span>) &#123;</span><br><span class="line">        serverLog(LL_WARNING, <span class="string">&quot;Configured to not listen anywhere, exiting.&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在这个函数里，根据配置文件，开始监听对应的端口或者 unixsockt。</p>
+<p>这里引入了 <code>connListener</code> <code>connection</code> <code>ConnectionType</code> 这三个结构</p>
+<ul>
+<li><code>connListener</code> 是对网络监听的封装</li>
+<li><code>connection</code> 是对网络连接的封装</li>
+<li><code>ConnectionType</code> 封装了操作网络需要的函数</li>
+</ul>
+<p><code>ConnectionType</code> 有三个不同的实现，分别是:</p>
+<ul>
+<li><code>CT_Socket</code> 对应的TCP <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/socket.c#L52">CT_Socket</a></li>
+<li><code>CT_Unix</code> 对应的是 unix socket <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/unix.c#L30">CT_Unix</a></li>
+<li><code>CT_TLS</code> 对应的 使用了 TLS的TCP <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/tls.c#L424">CT_TLS</a></li>
+</ul>
+<p><a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/connection.h#L68-L140">ConnectionType 定义</a></p>
+<p>ConnectionType内部的函数这里就不展开详细介绍了。</p>
+<p>在 <code>initListeners</code> 中调用了 <code>connListen</code> 函数，来完成对不同网络的监听，这里实现也挺简单的，就是调用了<code>ConnectionType</code> 中的 <code>listen</code> 函数，完成了对端口或者unixsocket的监听。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">int</span> <span class="title function_">connListen</span><span class="params">(connListener *listener)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> listener-&gt;ct-&gt;listen(listener);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>以 <code>socket</code> 为例，对应的listen函数就是 <code>connSocketListen</code> 对应的初始化在这里<a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/socket.c#L406">.listen &#x3D; connSocketListen</a></p>
+<p>最终实现对端口监听的函数是 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L2446">listenToPort(connListener *sfd)</a></p>
+<p>话题收回来，回到 <code>initListeners</code> 函数中 调用 <code>connListen</code> 函数完成监听后，会再调用<code>createSocketAcceptHandler</code> 函数 完成网络的 <code>Accept</code> 处理逻辑。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">createSocketAcceptHandler</span><span class="params">(connListener *sfd, aeFileProc *accept_handler)</span> &#123;</span><br><span class="line">    <span class="type">int</span> j;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; sfd-&gt;count; j++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (aeCreateFileEvent(server.el, sfd-&gt;fd[j], AE_READABLE, accept_handler,sfd) == AE_ERR) &#123;</span><br><span class="line">            <span class="comment">/* Rollback */</span></span><br><span class="line">            <span class="keyword">for</span> (j = j<span class="number">-1</span>; j &gt;= <span class="number">0</span>; j--) aeDeleteFileEvent(server.el, sfd-&gt;fd[j], AE_READABLE);</span><br><span class="line">            <span class="keyword">return</span> C_ERR;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> C_OK;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里逻辑也挺简单，遍历之前accept的 <code>fd</code>，将fd加入到 <code>aeEventLoop</code> 中，如果失败了，就回滚所有数据，也就是中 <code>aeEventLoop</code> 中删除对应的事件。</p>
+<p><code>aeCreateFileEvent</code>的实现</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">aeCreateFileEvent</span><span class="params">(aeEventLoop *eventLoop, <span class="type">int</span> fd, <span class="type">int</span> mask,</span></span><br><span class="line"><span class="params">        aeFileProc *proc, <span class="type">void</span> *clientData)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (fd &gt;= eventLoop-&gt;setsize) &#123;</span><br><span class="line">        errno = ERANGE;</span><br><span class="line">        <span class="keyword">return</span> AE_ERR;</span><br><span class="line">    &#125;</span><br><span class="line">    aeFileEvent *fe = &amp;eventLoop-&gt;events[fd];</span><br><span class="line">    <span class="comment">//调用对应平台的系统函数,把对应的事件加入到操作系统中</span></span><br><span class="line">    <span class="comment">//比如在epoll中就是调用 epoll_ctl 函数把 事件加入 epoll中</span></span><br><span class="line">    <span class="keyword">if</span> (aeApiAddEvent(eventLoop, fd, mask) == <span class="number">-1</span>)</span><br><span class="line">        <span class="keyword">return</span> AE_ERR;</span><br><span class="line">    fe-&gt;mask |= mask;</span><br><span class="line">    <span class="keyword">if</span> (mask &amp; AE_READABLE) fe-&gt;rfileProc = proc;</span><br><span class="line">    <span class="keyword">if</span> (mask &amp; AE_WRITABLE) fe-&gt;wfileProc = proc;</span><br><span class="line">    fe-&gt;clientData = clientData;</span><br><span class="line">    <span class="keyword">if</span> (fd &gt; eventLoop-&gt;maxfd)</span><br><span class="line">        eventLoop-&gt;maxfd = fd;</span><br><span class="line">    <span class="keyword">return</span> AE_OK;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>也是常规的处理逻辑，这里需要注意一下，传递的几个参数。</p>
+<ul>
+<li><code>aeEventLoop</code> 就是之前通过 <code>aeCreateEventLoop</code> 函数创建的对象。</li>
+<li><code>fd</code> 是对应的文件描述符</li>
+<li><code>mask</code> 对应的这个event 需要处理的事件类型，比如 读，写等等</li>
+<li><code>proc</code> 这个是一个回调函数，当对应的事件触发时，使用这个函数来处理。比如这里就是当<code>fd</code>有读写事件触发时，就会调用这个函数，也就是当有新的客户端连接时，就通过这个函数来处理</li>
+<li><code>clientData</code> 是这个event的数据</li>
+</ul>
+<p>这里的 <code>proc</code> 是<code>socket.c</code>文件中的 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/socket.c#L311">connSocketAcceptHandler</a> 函数。这个函数后面网络读写在分析。到这里，redis对client的网络监听基本完成了。</p>
+<h4 id="监听cluster"><a href="#监听cluster" class="headerlink" title="监听cluster"></a>监听cluster</h4><p>如果redis开启了集群，需要对集群中其他的redis做网络监听，与其他的redis互联</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L7312-L7315">开启cluster</a></p>
+<p>在这里调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/cluster.c#L1072">clusterInitListeners</a> 开启对 <code>cluster</code> 的监听。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">clusterInitListeners</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (connectionIndexByType(connTypeOfCluster()-&gt;get_type(<span class="literal">NULL</span>)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        serverLog(LL_WARNING, <span class="string">&quot;Missing connection type %s, but it is required for the Cluster bus.&quot;</span>, connTypeOfCluster()-&gt;get_type(<span class="literal">NULL</span>));</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> port = defaultClientPort();</span><br><span class="line">    connListener *listener = &amp;server.clistener;</span><br><span class="line">    listener-&gt;count = <span class="number">0</span>;</span><br><span class="line">    listener-&gt;bindaddr = server.bindaddr;</span><br><span class="line">    listener-&gt;bindaddr_count = server.bindaddr_count;</span><br><span class="line">    listener-&gt;port = server.cluster_port ? server.cluster_port : port + CLUSTER_PORT_INCR;</span><br><span class="line">    listener-&gt;ct = connTypeOfCluster();</span><br><span class="line">    <span class="keyword">if</span> (connListen(listener) == C_ERR ) &#123;</span><br><span class="line">        <span class="comment">/* Note: the following log text is matched by the test suite. */</span></span><br><span class="line">        serverLog(LL_WARNING, <span class="string">&quot;Failed listening on port %u (cluster), aborting.&quot;</span>, listener-&gt;port);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (createSocketAcceptHandler(&amp;server.clistener, clusterAcceptHandler) != C_OK) &#123;</span><br><span class="line">        serverPanic(<span class="string">&quot;Unrecoverable error creating Redis Cluster socket accept handler.&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里的逻辑和client那部分类似，不同的地方是 <code>aeFileEvent</code> 中的回调函数变成了 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/cluster.c#L1280">clusterAcceptHandler</a> 这里不展开了。</p>
+<p>然后会调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L2830">InitServerLast</a> 函数</p>
+<p>这里注意关注 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L4220">initThreadedIO</a> 这个函数</p>
+<p>redis 在6.0 版本加入了多线程支持，其实redis的多线程只是在 网络 I&#x2F;O 加入了多线程处理，在处理命令时还是单线程，这里就是做了多线程的处理。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">initThreadedIO</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line">    server.io_threads_active = <span class="number">0</span>; <span class="comment">/* We start with threads not active. */</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Indicate that io-threads are currently idle */</span></span><br><span class="line">    io_threads_op = IO_THREADS_OP_IDLE;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//如果就一个线程，也没必要开新的线程了</span></span><br><span class="line">    <span class="keyword">if</span> (server.io_threads_num == <span class="number">1</span>) <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//判断一下，如果线程太多了，就提示错误，不能开启太多线程</span></span><br><span class="line">    <span class="keyword">if</span> (server.io_threads_num &gt; IO_THREADS_MAX_NUM) &#123;</span><br><span class="line">        serverLog(LL_WARNING,<span class="string">&quot;Fatal: too many I/O threads configured. &quot;</span></span><br><span class="line">                             <span class="string">&quot;The maximum number is %d.&quot;</span>, IO_THREADS_MAX_NUM);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Spawn and initialize the I/O threads. */</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; server.io_threads_num; i++) &#123;</span><br><span class="line">        <span class="comment">/* Things we do for all the threads including the main thread. */</span></span><br><span class="line">        io_threads_list[i] = listCreate();</span><br><span class="line">        <span class="keyword">if</span> (i == <span class="number">0</span>) <span class="keyword">continue</span>; <span class="comment">/* Thread 0 is the main thread. */</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Things we do only for the additional threads. */</span></span><br><span class="line">        <span class="type">pthread_t</span> tid;</span><br><span class="line">        pthread_mutex_init(&amp;io_threads_mutex[i],<span class="literal">NULL</span>);</span><br><span class="line">        setIOPendingCount(i, <span class="number">0</span>);</span><br><span class="line">        pthread_mutex_lock(&amp;io_threads_mutex[i]); <span class="comment">/* Thread will be stopped. */</span></span><br><span class="line">        <span class="keyword">if</span> (pthread_create(&amp;tid,<span class="literal">NULL</span>,IOThreadMain,(<span class="type">void</span>*)(<span class="type">long</span>)i) != <span class="number">0</span>) &#123;</span><br><span class="line">            serverLog(LL_WARNING,<span class="string">&quot;Fatal: Can&#x27;t initialize IO thread.&quot;</span>);</span><br><span class="line">            <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        io_threads[i] = tid;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用 <code>pthread_create</code> 创建线程线程，<a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L4173">IOThreadMain</a> 是对应线程的处理函数。</p>
+<p>这个函数先不展开，等后面处理网络读写的时候，会提到。</p>
+<p>回到 <code>main</code> 函数里，继续往下走，最后会调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/ae.c#L493">aeMain</a> 来阻塞当前线程，然后处理网络。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">aeMain</span><span class="params">(aeEventLoop *eventLoop)</span> &#123;</span><br><span class="line">    eventLoop-&gt;stop = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">while</span> (!eventLoop-&gt;stop) &#123;</span><br><span class="line">        aeProcessEvents(eventLoop, AE_ALL_EVENTS|</span><br><span class="line">                                   AE_CALL_BEFORE_SLEEP|</span><br><span class="line">                                   AE_CALL_AFTER_SLEEP);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/ae.c#L361">aeProcessEvents</a> 中处理之前 添加的 <code>aeEvent</code> 事件回调</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">aeProcessEvents</span><span class="params">(aeEventLoop *eventLoop, <span class="type">int</span> flags)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> processed = <span class="number">0</span>, numevents;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Nothing to do? return ASAP */</span></span><br><span class="line">    <span class="keyword">if</span> (!(flags &amp; AE_TIME_EVENTS) &amp;&amp; !(flags &amp; AE_FILE_EVENTS)) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (eventLoop-&gt;maxfd != <span class="number">-1</span> ||</span><br><span class="line">        ((flags &amp; AE_TIME_EVENTS) &amp;&amp; !(flags &amp; AE_DONT_WAIT))) &#123;</span><br><span class="line">        <span class="type">int</span> j;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">timeval</span> <span class="title">tv</span>, *<span class="title">tvp</span> =</span> <span class="literal">NULL</span>; <span class="comment">/* NULL means infinite wait. */</span></span><br><span class="line">        <span class="type">int64_t</span> usUntilTimer;</span><br><span class="line">        <span class="comment">//检查beforesleep函数指针,如果有对应的函数,调用这个函数</span></span><br><span class="line">        <span class="keyword">if</span> (eventLoop-&gt;beforesleep != <span class="literal">NULL</span> &amp;&amp; (flags &amp; AE_CALL_BEFORE_SLEEP))</span><br><span class="line">            eventLoop-&gt;beforesleep(eventLoop);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> ((flags &amp; AE_DONT_WAIT) || (eventLoop-&gt;flags &amp; AE_DONT_WAIT)) &#123;</span><br><span class="line">            tv.tv_sec = tv.tv_usec = <span class="number">0</span>;</span><br><span class="line">            tvp = &amp;tv;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (flags &amp; AE_TIME_EVENTS) &#123;</span><br><span class="line">            usUntilTimer = usUntilEarliestTimer(eventLoop);</span><br><span class="line">            <span class="keyword">if</span> (usUntilTimer &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">                tv.tv_sec = usUntilTimer / <span class="number">1000000</span>;</span><br><span class="line">                tv.tv_usec = usUntilTimer % <span class="number">1000000</span>;</span><br><span class="line">                tvp = &amp;tv;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        numevents = aeApiPoll(eventLoop, tvp);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Don&#x27;t process file events if not requested. */</span></span><br><span class="line">        <span class="keyword">if</span> (!(flags &amp; AE_FILE_EVENTS)) &#123;</span><br><span class="line">            numevents = <span class="number">0</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">//检查aftersleep函数指针,如果有对应的函数,调用这个函数</span></span><br><span class="line">        <span class="keyword">if</span> (eventLoop-&gt;aftersleep != <span class="literal">NULL</span> &amp;&amp; flags &amp; AE_CALL_AFTER_SLEEP)</span><br><span class="line">            eventLoop-&gt;aftersleep(eventLoop);</span><br><span class="line">        <span class="comment">//检查就绪的事件,然后做对应的处理</span></span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; numevents; j++) &#123;</span><br><span class="line">            <span class="type">int</span> fd = eventLoop-&gt;fired[j].fd;</span><br><span class="line">            aeFileEvent *fe = &amp;eventLoop-&gt;events[fd];</span><br><span class="line">            <span class="type">int</span> mask = eventLoop-&gt;fired[j].mask;</span><br><span class="line">            <span class="type">int</span> fired = <span class="number">0</span>; <span class="comment">/* Number of events fired for current fd. */</span></span><br><span class="line"></span><br><span class="line">            <span class="type">int</span> invert = fe-&gt;mask &amp; AE_BARRIER;</span><br><span class="line">            <span class="comment">//需要翻转的话,先处理读的回调函数</span></span><br><span class="line">            <span class="keyword">if</span> (!invert &amp;&amp; fe-&gt;mask &amp; mask &amp; AE_READABLE) &#123;</span><br><span class="line">                fe-&gt;rfileProc(eventLoop,fd,fe-&gt;clientData,mask);</span><br><span class="line">                fired++;</span><br><span class="line">                fe = &amp;eventLoop-&gt;events[fd]; <span class="comment">/* Refresh in case of resize. */</span></span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">//如果有写事件,做回调</span></span><br><span class="line">            <span class="keyword">if</span> (fe-&gt;mask &amp; mask &amp; AE_WRITABLE) &#123;</span><br><span class="line">                <span class="keyword">if</span> (!fired || fe-&gt;wfileProc != fe-&gt;rfileProc) &#123;</span><br><span class="line">                    fe-&gt;wfileProc(eventLoop,fd,fe-&gt;clientData,mask);</span><br><span class="line">                    fired++;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (invert) &#123;<span class="comment">//如果之前没有处理读事件</span></span><br><span class="line">                fe = &amp;eventLoop-&gt;events[fd]; <span class="comment">/* Refresh in case of resize. */</span></span><br><span class="line">                <span class="keyword">if</span> ((fe-&gt;mask &amp; mask &amp; AE_READABLE) &amp;&amp;</span><br><span class="line">                    (!fired || fe-&gt;wfileProc != fe-&gt;rfileProc))</span><br><span class="line">                &#123;<span class="comment">//读回调函数指针和写回调函数指针不是同一个, 并且有读事件,回调读函数</span></span><br><span class="line">                    fe-&gt;rfileProc(eventLoop,fd,fe-&gt;clientData,mask);</span><br><span class="line">                    fired++;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            processed++;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//如果有时间回调事件,回调时间的回调函数</span></span><br><span class="line">    <span class="keyword">if</span> (flags &amp; AE_TIME_EVENTS)</span><br><span class="line">        processed += processTimeEvents(eventLoop);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> processed; <span class="comment">/* return the number of processed file/time events */</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L1625">beforeSleep</a> 函数</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L1785">afterSleep</a>  函数</p>
+<p>这两个函数内容非常多，很多和网络是无关的，不展开分析，后面有用的再回来介绍。</p>
+<p><code>aeApiPoll</code> 函数在不同的平台上有不同的实现，最终的目的是等待系统的回调事件。在 <code>epoll</code> 中是等待 <code>epoll_wait</code> 的回调。</p>
+<h3 id="网络读写处理"><a href="#网络读写处理" class="headerlink" title="网络读写处理"></a>网络读写处理</h3><h4 id="Listener-回调"><a href="#Listener-回调" class="headerlink" title="Listener 回调"></a>Listener 回调</h4><p>之前在添加 <code>listener</code> 的时候，添加的是 <code>AE_READABLE</code> 事件， <code>aeCreateFileEvent(server.el, sfd-&gt;fd[j], AE_READABLE, accept_handler,sfd)</code></p>
+<p>所以，accept 的回调会在 可读的回调函数中。</p>
+<p><code>accept_handler</code>指针是 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/socket.c#L311-L312">connSocketAcceptHandler</a> 函数</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">connSocketAcceptHandler</span><span class="params">(aeEventLoop *el, <span class="type">int</span> fd, <span class="type">void</span> *privdata, <span class="type">int</span> mask)</span> &#123;</span><br><span class="line">    <span class="type">int</span> cport, cfd, max = MAX_ACCEPTS_PER_CALL;</span><br><span class="line">    <span class="type">char</span> cip[NET_IP_STR_LEN];</span><br><span class="line">    UNUSED(el);</span><br><span class="line">    UNUSED(mask);</span><br><span class="line">    UNUSED(privdata);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(max--) &#123;</span><br><span class="line">        <span class="comment">//把当前的 accept 的 fd 转换成一个TCP连接</span></span><br><span class="line">        cfd = anetTcpAccept(server.neterr, fd, cip, <span class="keyword">sizeof</span>(cip), &amp;cport);</span><br><span class="line">        <span class="keyword">if</span> (cfd == ANET_ERR) &#123;</span><br><span class="line">            <span class="keyword">if</span> (errno != EWOULDBLOCK)</span><br><span class="line">                serverLog(LL_WARNING,</span><br><span class="line">                    <span class="string">&quot;Accepting client connection: %s&quot;</span>, server.neterr);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        serverLog(LL_VERBOSE,<span class="string">&quot;Accepted %s:%d&quot;</span>, cip, cport);</span><br><span class="line">        acceptCommonHandler(connCreateAcceptedSocket(cfd, <span class="literal">NULL</span>),<span class="number">0</span>,cip);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 <code>anetTcpAccept</code> 中 调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/anet.c#L521">anetGenericAccept</a> 函数， 在函数中</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">ifdef</span> HAVE_ACCEPT4</span></span><br><span class="line">        fd = accept4(s, sa, len,  SOCK_NONBLOCK | SOCK_CLOEXEC);</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">        fd = accept(s,sa,len);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br></pre></td></tr></table></figure>
+<p>最终通过 <code>accept4</code> 或者 <code>accept</code> 系统调用，接受一个新的TCP链接。</p>
+<p>最后调用 <code>acceptCommonHandler</code> 函数, 这个函数里会调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L1342">createClient(conn)</a> 来创建一个 <strong>client</strong></p>
+<p>在 <code>createClient</code> 中，关注这段函数</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">client *c = zmalloc(<span class="keyword">sizeof</span>(client));</span><br><span class="line"><span class="keyword">if</span> (conn) &#123;</span><br><span class="line">    connEnableTcpNoDelay(conn);</span><br><span class="line">    <span class="keyword">if</span> (server.tcpkeepalive)</span><br><span class="line">        connKeepAlive(conn,server.tcpkeepalive);</span><br><span class="line">    <span class="comment">//把当前的conn加入到 eventPool中,并且把 readQueryFromClient 设置为回调函数</span></span><br><span class="line">    connSetReadHandler(conn, readQueryFromClient);</span><br><span class="line">    connSetPrivateData(conn, c);</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//初始化client的buffer</span></span><br><span class="line">c-&gt;buf = zmalloc_usable(PROTO_REPLY_CHUNK_BYTES, &amp;c-&gt;buf_usable_size);</span><br><span class="line">selectDb(c,<span class="number">0</span>);</span><br><span class="line"><span class="type">uint64_t</span> client_id;</span><br></pre></td></tr></table></figure>
+
+<p><code>connEnableTcpNoDelay</code> 最终会调用 <code>anet.c中的</code> <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/anet.c#L191">anetSetTcpNoDelay</a> 函数，来完成对TCP连接的设置。</p>
+<p><code>connKeepAlive</code> 最终调用到 <code>anet.c中的</code> <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/anet.c#L136">anetKeepAlive</a> 对 <strong>KeepAlive</strong> 的设置</p>
+<p><code>connSetReadHandler</code> 通过这个函数，完成把 该TCP连接的 <strong>fd</strong> 加入的 <code>eventLoop</code> 中进行管理。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">int</span> <span class="title function_">connSetReadHandler</span><span class="params">(connection *conn, ConnectionCallbackFunc func)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> conn-&gt;type-&gt;set_read_handler(conn, func);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>通过 <code>set_read_handler</code> 这个函数指针调用到 <code>socket.c</code> 中的 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/socket.c#L241">connSocketSetReadHandler</a> 函数</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">connSocketSetReadHandler</span><span class="params">(connection *conn, ConnectionCallbackFunc func)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (func == conn-&gt;read_handler) <span class="keyword">return</span> C_OK;</span><br><span class="line"></span><br><span class="line">    conn-&gt;read_handler = func;</span><br><span class="line">    <span class="keyword">if</span> (!conn-&gt;read_handler)</span><br><span class="line">        aeDeleteFileEvent(server.el,conn-&gt;fd,AE_READABLE);</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="keyword">if</span> (aeCreateFileEvent(server.el,conn-&gt;fd,</span><br><span class="line">                    AE_READABLE,conn-&gt;type-&gt;ae_handler,conn) == AE_ERR) <span class="keyword">return</span> C_ERR;</span><br><span class="line">    <span class="keyword">return</span> C_OK;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>调用 <code>aeCreateFileEvent</code> 把当前的 <code>conn</code> 加入到 <code>server.el</code> 也就是启动redis时，创建的 <code>aeEventPool</code> 中。</p>
+<p>回到 <code>createClient</code> 函数中，<code>connSetReadHandler(conn, readQueryFromClient);</code> 第二参数传递的是 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L2616">readQueryFromClient</a> 这个函数的指针。这个函数 会赋值给 <code>aeFileEvent</code> 的 <code>rfileProc</code> 函数指针中。后续，如果这个 <code>conn</code> 有可读事件回调时，会使用 <code>readQueryFromClient</code> 这个函数来处理。</p>
+<p>到这里，一个新TCP连接的处理基本就完成了。</p>
+<h3 id="处理client读写"><a href="#处理client读写" class="headerlink" title="处理client读写"></a>处理client读写</h3><h4 id="读处理"><a href="#读处理" class="headerlink" title="读处理"></a>读处理</h4><p>当redis-server 收到client发来的数据后，也是通过 <code>aeEventPool</code> 来回调通知对应的 client来处理。</p>
+<p>上面我们说过了，client收到读事件的回调函数是 <code>readQueryFromClient</code>，当client对应的网络有可读事件触发时，会回调这个函数。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">readQueryFromClient</span><span class="params">(connection *conn)</span> &#123;</span><br><span class="line">    client *c = connGetPrivateData(conn);</span><br><span class="line">    <span class="type">int</span> nread, big_arg = <span class="number">0</span>;</span><br><span class="line">    <span class="type">size_t</span> qblen, readlen;</span><br><span class="line">    <span class="comment">//判断一下,是否开启了IO线程,如果开启了那么会从IO线程读取数据</span></span><br><span class="line">    <span class="keyword">if</span> (postponeClientRead(c)) <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//读取次数 原子性的 +1</span></span><br><span class="line">    atomicIncr(server.stat_total_reads_processed, <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">    readlen = PROTO_IOBUF_LEN;</span><br><span class="line">    <span class="comment">//如果是一个multi请求,那么调整一下缓冲区的大小</span></span><br><span class="line">    <span class="keyword">if</span> (c-&gt;reqtype == PROTO_REQ_MULTIBULK &amp;&amp; c-&gt;multibulklen &amp;&amp; c-&gt;bulklen != <span class="number">-1</span></span><br><span class="line">        &amp;&amp; c-&gt;bulklen &gt;= PROTO_MBULK_BIG_ARG)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="type">ssize_t</span> remaining = (<span class="type">size_t</span>)(c-&gt;bulklen+<span class="number">2</span>)-(sdslen(c-&gt;querybuf)-c-&gt;qb_pos);</span><br><span class="line">        big_arg = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (remaining &gt; <span class="number">0</span>) readlen = remaining;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (c-&gt;flags &amp; CLIENT_MASTER &amp;&amp; readlen &lt; PROTO_IOBUF_LEN)</span><br><span class="line">            readlen = PROTO_IOBUF_LEN;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    qblen = sdslen(c-&gt;querybuf);</span><br><span class="line">    <span class="keyword">if</span> (!(c-&gt;flags &amp; CLIENT_MASTER) &amp;&amp; </span><br><span class="line">        (big_arg || sdsalloc(c-&gt;querybuf) &lt; PROTO_IOBUF_LEN)) &#123;</span><br><span class="line">        c-&gt;querybuf = sdsMakeRoomForNonGreedy(c-&gt;querybuf, readlen);</span><br><span class="line">        <span class="keyword">if</span> (c-&gt;querybuf_peak &lt; qblen + readlen) c-&gt;querybuf_peak = qblen + readlen;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        c-&gt;querybuf = sdsMakeRoomFor(c-&gt;querybuf, readlen);</span><br><span class="line"></span><br><span class="line">        readlen = sdsavail(c-&gt;querybuf);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">//从网络中读取数据,如果是 socket,使用 connSocketRead 函数</span></span><br><span class="line">    nread = connRead(c-&gt;conn, c-&gt;querybuf+qblen, readlen);</span><br><span class="line">    <span class="keyword">if</span> (nread == <span class="number">-1</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (connGetState(conn) == CONN_STATE_CONNECTED) &#123;</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            serverLog(LL_VERBOSE, <span class="string">&quot;Reading from client: %s&quot;</span>,connGetLastError(c-&gt;conn));</span><br><span class="line">            freeClientAsync(c);</span><br><span class="line">            <span class="keyword">goto</span> done;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (nread == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (server.verbosity &lt;= LL_VERBOSE) &#123;</span><br><span class="line">            sds info = catClientInfoString(sdsempty(), c);</span><br><span class="line">            serverLog(LL_VERBOSE, <span class="string">&quot;Client closed connection %s&quot;</span>, info);</span><br><span class="line">            sdsfree(info);</span><br><span class="line">        &#125;</span><br><span class="line">        freeClientAsync(c);</span><br><span class="line">        <span class="keyword">goto</span> done;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    sdsIncrLen(c-&gt;querybuf,nread);</span><br><span class="line">    qblen = sdslen(c-&gt;querybuf);</span><br><span class="line">    <span class="keyword">if</span> (c-&gt;querybuf_peak &lt; qblen) c-&gt;querybuf_peak = qblen;</span><br><span class="line"></span><br><span class="line">    c-&gt;lastinteraction = server.unixtime;</span><br><span class="line">    <span class="keyword">if</span> (c-&gt;flags &amp; CLIENT_MASTER) &#123;</span><br><span class="line">        c-&gt;read_reploff += nread;</span><br><span class="line">        atomicIncr(server.stat_net_repl_input_bytes, nread);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        atomicIncr(server.stat_net_input_bytes, nread);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!(c-&gt;flags &amp; CLIENT_MASTER) &amp;&amp; sdslen(c-&gt;querybuf) &gt; server.client_max_querybuf_len) &#123;</span><br><span class="line">        sds ci = catClientInfoString(sdsempty(),c), bytes = sdsempty();</span><br><span class="line"></span><br><span class="line">        bytes = sdscatrepr(bytes,c-&gt;querybuf,<span class="number">64</span>);</span><br><span class="line">        serverLog(LL_WARNING,<span class="string">&quot;Closing client that reached max query buffer length: %s (qbuf initial bytes: %s)&quot;</span>, ci, bytes);</span><br><span class="line">        sdsfree(ci);</span><br><span class="line">        sdsfree(bytes);</span><br><span class="line">        freeClientAsync(c);</span><br><span class="line">        <span class="keyword">goto</span> done;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//处理读到的数据,尝试解析RESP协议</span></span><br><span class="line">    <span class="keyword">if</span> (processInputBuffer(c) == C_ERR)</span><br><span class="line">         c = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">done:</span><br><span class="line">    beforeNextClient(c);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在这个函数中判断是否需要使用多线程。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">postponeClientRead</span><span class="params">(client *c)</span> &#123;</span><br><span class="line">    <span class="comment">//在这里判断是否需要使用多线程从网络读取数据</span></span><br><span class="line">    <span class="keyword">if</span> (server.io_threads_active &amp;&amp;</span><br><span class="line">        server.io_threads_do_reads &amp;&amp;</span><br><span class="line">        !ProcessingEventsWhileBlocked &amp;&amp;</span><br><span class="line">        !(c-&gt;flags &amp; (CLIENT_MASTER|CLIENT_SLAVE|CLIENT_BLOCKED)) &amp;&amp;</span><br><span class="line">        io_threads_op == IO_THREADS_OP_IDLE)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">//如果需要多线程读取,把当前client加入到`clients_pending_read`中,等待后续调用</span></span><br><span class="line">        listAddNodeHead(server.clients_pending_read,c);</span><br><span class="line">        c-&gt;pending_read_list_node = listFirst(server.clients_pending_read);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在配置文件中</p>
+<ul>
+<li><code>io-threads</code> IO线程数量,默认只有一个，也就是不用多线程读写网络</li>
+<li><code>io-threads-do-reads</code> 是否开启多线程读和解析RESP功能，如果不开启，那么多线程只会处理写</li>
+</ul>
+<p>如果只有一个client就绪（也就是没有并发请求）时，即使开了多线程和IO线程读，也不会使用多线程去读网络，只有当多个client同时读写数据，这时候会在 <code>handleClientsWithPendingReadsUsingThreads</code> 中开启 多线程处理。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L4329">开启多线程读写</a></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!server.io_threads_active) startThreadedIO();</span><br></pre></td></tr></table></figure>
+
+<p>此时，当client读事件就绪后，再次回调 <code>readQueryFromClient</code> 函数后，会进入 <code>listAddNodeHead(server.clients_pending_read,c);</code> 加入链表，等待IO线程处理</p>
+<p><strong>如果需要多线程</strong></p>
+<p>在主线程里调用 使用 <code>aeEventPool</code> 的 <code>beforesleep</code> 函数指针调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L1625">beforeSleep</a> 函数来执行 sleep前的处理函数，然后在调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L4443">handleClientsWithPendingReadsUsingThreads</a> 函数来判断是否需要使用多线程来读数据。</p>
+<p>最后的读取是由 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L2616">readQueryFromClient</a> 函数来完成数据的读取。</p>
+<p><code>readQueryFromClient</code> 函数可以通过 <code>handleClientsWithPendingReadsUsingThreads</code> 函数在主线程调用，也可以通过 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L4173">IOThreadMain</a> 函数通过IO线程并发读取。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//启动IO多线程读取数据</span></span><br><span class="line">io_threads_op = IO_THREADS_OP_READ;</span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">1</span>; j &lt; server.io_threads_num; j++) &#123;</span><br><span class="line">    <span class="type">int</span> count = listLength(io_threads_list[j]);</span><br><span class="line">    setIOPendingCount(j, count);</span><br><span class="line">&#125;</span><br><span class="line">.......</span><br><span class="line"><span class="comment">//等待IO线程读取完成</span></span><br><span class="line"><span class="keyword">while</span>(<span class="number">1</span>) &#123;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> pending = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">1</span>; j &lt; server.io_threads_num; j++)</span><br><span class="line">        pending += getIOPendingCount(j);</span><br><span class="line">    <span class="keyword">if</span> (pending == <span class="number">0</span>) <span class="keyword">break</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>当执行完 <code>beforesleep</code> 函数后，再由 <code>aeFileEvent</code> 的 <code>rfileProc</code> 函数指针调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L2520">processInputBuffer</a> 函数内主要是判断和解析字符串，就不展开分析了</p>
+<p>主要关注这部分逻辑</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (c-&gt;reqtype == PROTO_REQ_INLINE) &#123;</span><br><span class="line">    <span class="comment">//如果是一行的字符串,解析方式</span></span><br><span class="line">    <span class="keyword">if</span> (processInlineBuffer(c) != C_OK) <span class="keyword">break</span>;</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (c-&gt;reqtype == PROTO_REQ_MULTIBULK) &#123;</span><br><span class="line">    <span class="comment">//如果是多行的,解析方式</span></span><br><span class="line">    <span class="keyword">if</span> (processMultibulkBuffer(c) != C_OK) <span class="keyword">break</span>;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    serverPanic(<span class="string">&quot;Unknown request type&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//如果解析到的参数个数是0,那么说明还没有解析完成,重置client</span></span><br><span class="line"><span class="keyword">if</span> (c-&gt;argc == <span class="number">0</span>) &#123;</span><br><span class="line">    resetClient(c);</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">//判断一下是否在IO线程里,如果是的话,设置一下flag,然后结束.</span></span><br><span class="line">    <span class="comment">//因为redis的多线程只能用来读写网络,操作redis的数据库还是用单线的</span></span><br><span class="line">    <span class="keyword">if</span> (io_threads_op != IO_THREADS_OP_IDLE) &#123;</span><br><span class="line">        serverAssert(io_threads_op == IO_THREADS_OP_READ);</span><br><span class="line">        c-&gt;flags |= CLIENT_PENDING_COMMAND;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//开始执行命令了</span></span><br><span class="line">    <span class="keyword">if</span> (processCommandAndResetClient(c) == C_ERR) &#123;</span><br><span class="line">        <span class="keyword">return</span> C_ERR;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>最终会调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L3825">processCommand</a> 函数执行命令</p>
+<p>执行命令的逻辑先不管，这不是本文的重点。</p>
+<h4 id="写处理"><a href="#写处理" class="headerlink" title="写处理"></a>写处理</h4><p>当命令处理完成后，把有需要回复客户端的数据写入client的buf中。</p>
+<p>最后会调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L1939">writeToClient</a> 函数把 client buf 中的数据写入到网络中，完成数据返回。</p>
+<p><code>writeToClient</code> 有多个回调路径。但是都是由 <code>aeEventpool</code> 中的 <code>aftersleep</code> 函数指针 调用 <code>beforeSleep</code> 函数来完成的。</p>
+<p>在 <code>beforeSleep</code> 中调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/server.c#L1738">handleClientsWithPendingWritesUsingThreads</a> 函数。</p>
+<p>这个函数也比较长，就不贴了，只挑一些重点的。这期贴了不少源码，一直看源码，也挺枯燥的。这个函数的大概逻辑和 <code>handleClientsWithPendingReadsUsingThreads</code> 函数的差不多，只不过这里处理的是写网络。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (server.io_threads_num == <span class="number">1</span> || stopThreadedIOIfNeeded()) &#123;</span><br><span class="line">    <span class="keyword">return</span> handleClientsWithPendingWrites();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里判断一下，如果没有开启多线程或者停了IO线程，就使用 <code>handleClientsWithPendingWrites</code> 函数在主线程处理写逻辑。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L2023">handleClientsWithPendingWrites</a> 里的逻辑很简单，遍历 <code>server.clients_pending_write</code> 中的client，然后调用 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/d2c8a4b91e8c0e6aefd1f5bc0bf582cddbe046b7/src/networking.c#L1939">writeToClient</a> 把数据写入到网络中。</p>
+<p>回到 <code>handleClientsWithPendingWritesUsingThreads</code> 函数中，调用 <code>startThreadedIO()</code> 启动 IO线程并发处理写入。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//在主线程中也会处理写入</span></span><br><span class="line">listRewind(io_threads_list[<span class="number">0</span>],&amp;li);</span><br><span class="line"><span class="keyword">while</span>((ln = listNext(&amp;li))) &#123;</span><br><span class="line">    client *c = listNodeValue(ln);</span><br><span class="line">    writeToClient(c,<span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line">listEmpty(io_threads_list[<span class="number">0</span>]);</span><br><span class="line"><span class="comment">//和上面的多线程读一样,这里也会等待所有IO线程任务结束</span></span><br><span class="line"><span class="keyword">while</span>(<span class="number">1</span>) &#123;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> pending = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">1</span>; j &lt; server.io_threads_num; j++)</span><br><span class="line">        pending += getIOPendingCount(j);</span><br><span class="line">    <span class="keyword">if</span> (pending == <span class="number">0</span>) <span class="keyword">break</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>到这基本redis的整个网络处理流程大概就写完了。注意，这只是个大概，其中的一些细节还没有深入分析。比如在 <code>aeProcessEvents</code> 函数中，为什么有 <code>beforesleep</code> 和 <code>aftersleep</code> 这两个函数指针，以及调用两个函数中的先后调用顺序。 <code>aeFileEvent</code> 中 <code>rfileProc</code> 和 <code>wfileProc</code> 这两个函数指针的调用顺序，以及调用的函数的逻辑。每一个都可以拿出来单独写一篇。</p>
+<p>以后有时间在单独拿出来分析吧。如果有时间再这篇文章补一个流程图。</p>
+<p>redis用C写的，C对多态的支持不太好，不像面向对象的语言那样，可以很方便的使用多态。所以在redis的源码里，大量使用了函数指针和回调函数，来间接的实现了多态。这样会在阅读源码的时候增加了很多理解成本。</p>
+<p>但是鲁迅先生曾经说过，在断点面前，一切语法都是纸老虎。所以遇到复杂的函数调用逻辑，使用断点去看一下函数的调用关系，堆栈，基本都能解决问题。</p>
+<p>也快过年了，提前祝所有读者 新年快乐</p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>QX
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://lqxhub.github.io/posts/bce71a0/" title="redis源码学习|网络">https://lqxhub.github.io/posts/bce71a0/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+  <li class="post-copyright-license">
+    <strong>暂时还懒得去弄评论区，有问题欢迎 <a href="mailto:lqxlucky@qq.com" title="lqxlucky@qq.com" rel="noopener" target="_blank">邮件</a> 交流</strong>
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/redis/" rel="tag"><i class="fa fa-tag"></i> redis</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/f5a4584b/" rel="prev" title="我的2023">
+      <i class="fa fa-chevron-left"></i> 我的2023
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/posts/1cb4847b/" rel="next" title="redis ACL使用手册">
+      redis ACL使用手册 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <!--关于我页面去掉左边栏-->
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%EF%BC%9A"><span class="nav-number">1.</span> <span class="nav-text">数据结构：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8%E7%BD%91%E7%BB%9C%E6%9C%8D%E5%8A%A1"><span class="nav-number">2.</span> <span class="nav-text">启动网络服务</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%9B%91%E5%90%ACclient"><span class="nav-number">2.1.</span> <span class="nav-text">监听client</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%9B%91%E5%90%ACcluster"><span class="nav-number">2.2.</span> <span class="nav-text">监听cluster</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BD%91%E7%BB%9C%E8%AF%BB%E5%86%99%E5%A4%84%E7%90%86"><span class="nav-number">3.</span> <span class="nav-text">网络读写处理</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Listener-%E5%9B%9E%E8%B0%83"><span class="nav-number">3.1.</span> <span class="nav-text">Listener 回调</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%84%E7%90%86client%E8%AF%BB%E5%86%99"><span class="nav-number">4.</span> <span class="nav-text">处理client读写</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AF%BB%E5%A4%84%E7%90%86"><span class="nav-number">4.1.</span> <span class="nav-text">读处理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%86%99%E5%A4%84%E7%90%86"><span class="nav-number">4.2.</span> <span class="nav-text">写处理</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="QX"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">QX</p>
+  <div class="site-description" itemprop="description">QX的笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">54</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">37</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/lqxhub" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;lqxhub" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:lqxlucky@qq.com" title="E-Mail → mailto:lqxlucky@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">QX</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    <span title="站点总字数">87k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    <span title="站点阅读时长">5:15</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="//cdn.jsdelivr.net/gh/theme-next/theme-next-canvas-nest@1/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
