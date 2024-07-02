@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>QX 的笔记</title>
+  
+  
+  <link href="https://lqxhub.github.io/atom.xml" rel="self"/>
+  
+  <link href="https://lqxhub.github.io/"/>
+  <updated>2024-07-02T06:29:58.289Z</updated>
+  <id>https://lqxhub.github.io/</id>
+  
+  <author>
+    <name>QX</name>
+    
+  </author>
+  
+  <generator uri="https://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>redis ACL使用手册</title>
+    <link href="https://lqxhub.github.io/posts/1cb4847b/"/>
+    <id>https://lqxhub.github.io/posts/1cb4847b/</id>
+    <published>2024-03-10T10:32:52.000Z</published>
+    <updated>2024-07-02T06:29:58.289Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;redis在 6.0 版本加入了ACL支持，虽然已经发布很久了，但是这个命令属于不太常用的命令，导致很多人对ACL还不太了解。比较好的文档就是redis &lt;a href=&quot;https://redis.io/docs/management/security/acl/&quot;&gt;ACL的官方文档&lt;/a&gt; ，其他网上搜索到的相关知识大多数不全面，尤其中文文档缺失比较多。&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="redis" scheme="https://lqxhub.github.io/categories/redis/"/>
+    
+    
+    <category term="redis" scheme="https://lqxhub.github.io/tags/redis/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>redis源码学习|网络</title>
+    <link href="https://lqxhub.github.io/posts/bce71a0/"/>
+    <id>https://lqxhub.github.io/posts/bce71a0/</id>
+    <published>2024-01-28T12:10:27.000Z</published>
+    <updated>2024-07-02T06:29:58.289Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;去年写过两篇redis的源码分析文章（redis的watch和ACL），现在回头看，已经过去好久了。说起那两篇文章，收益还是挺大的。这周有时间了，继续学习redis的源码。先来看一下redis的网络处理。&lt;/p&gt;
+&lt;p&gt;本次的源码基于redis的 &lt;strong&gt;7.2&lt;/strong&gt; 分支，不同版本下，一些细节可能会有差异。&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="redis" scheme="https://lqxhub.github.io/categories/redis/"/>
+    
+    
+    <category term="redis" scheme="https://lqxhub.github.io/tags/redis/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>我的2023</title>
+    <link href="https://lqxhub.github.io/posts/f5a4584b/"/>
+    <id>https://lqxhub.github.io/posts/f5a4584b/</id>
+    <published>2023-12-25T11:26:56.000Z</published>
+    <updated>2024-07-02T06:29:58.297Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;2023马上就结束了，在年底回忆总结一下今年的一些事情，顺便思考一下明年的一些计划。&lt;br&gt;以前每年我也会写一下，只是没有公开出来，今年想着公开一下，一些事情公开出来，可能还会有鞭策的作用 0.0&lt;/p&gt;
+&lt;p&gt;还是从 &lt;strong&gt;生活&lt;/strong&gt; 与 &lt;strong&gt;工作&lt;/strong&gt; 两方面来写吧&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="生活" scheme="https://lqxhub.github.io/categories/%E7%94%9F%E6%B4%BB/"/>
+    
+    
+    <category term="生活" scheme="https://lqxhub.github.io/tags/%E7%94%9F%E6%B4%BB/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>C++动态加载so/dll库</title>
+    <link href="https://lqxhub.github.io/posts/b810e905/"/>
+    <id>https://lqxhub.github.io/posts/b810e905/</id>
+    <published>2023-07-22T13:56:18.000Z</published>
+    <updated>2024-07-02T06:29:58.261Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;在C++使用动态库，(linux下是&lt;code&gt;.so&lt;/code&gt;，windows下是&lt;code&gt;.dll&lt;/code&gt;) 比较常见的方式是在编译时，直接连接到程序中。但是除了这种方式外，还可以使用的动态加载的方式去使用动态库。&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="C++" scheme="https://lqxhub.github.io/categories/C/"/>
+    
+    
+    <category term="C++" scheme="https://lqxhub.github.io/tags/C/"/>
+    
+    <category term="linux" scheme="https://lqxhub.github.io/tags/linux/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>redis源码学习|ACL</title>
+    <link href="https://lqxhub.github.io/posts/eeb1e692/"/>
+    <id>https://lqxhub.github.io/posts/eeb1e692/</id>
+    <published>2023-07-03T13:07:02.000Z</published>
+    <updated>2024-07-02T06:29:58.289Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;Redis 在6.0 中加入了ACL（Access Control List) 的支持，在此前的版本中,Redis是没有用户的概念的，没有办法很好的控制权限，在6.0中加入了用户的概念，可以给每个用户分配不同的权限来控制权限。&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="redis" scheme="https://lqxhub.github.io/categories/redis/"/>
+    
+    
+    <category term="redis" scheme="https://lqxhub.github.io/tags/redis/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>redis源码学习|watch</title>
+    <link href="https://lqxhub.github.io/posts/aadf9734/"/>
+    <id>https://lqxhub.github.io/posts/aadf9734/</id>
+    <published>2023-05-27T07:20:19.000Z</published>
+    <updated>2024-07-02T06:29:58.401Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;最近想深入学习一下redis，那阅读源码是最好的学习方式了，正好最近pika社区在讨论 &lt;strong&gt;事务&lt;/strong&gt; 的实现，实现事务的基础就是数据的一致性&lt;br&gt;虽然redis的事务没有像 关系型数据库那样，支持数据回滚。但是redis的事务也可以保证数据的一致性，如何保证数据 一致性，就是靠 &lt;strong&gt;watch&lt;/strong&gt; 这个功能来实现的。说白了，redis的watch功能就是一个&lt;strong&gt;乐观锁&lt;/strong&gt;&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="redis" scheme="https://lqxhub.github.io/categories/redis/"/>
+    
+    
+    <category term="redis" scheme="https://lqxhub.github.io/tags/redis/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>debian11 升级到 debian12</title>
+    <link href="https://lqxhub.github.io/posts/39fad342/"/>
+    <id>https://lqxhub.github.io/posts/39fad342/</id>
+    <published>2023-05-14T06:12:12.000Z</published>
+    <updated>2024-07-02T06:29:58.265Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;根据debian官方发布的公告，debian12的发布日期是2023年6月10日。&lt;br&gt;我原本以为要等到那天才能更新呢，去网站看了一下，现在就可以更新了，那还用说了，直接冲。&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="linux" scheme="https://lqxhub.github.io/categories/linux/"/>
+    
+    
+    <category term="linux" scheme="https://lqxhub.github.io/tags/linux/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>go小数四舍五入取整</title>
+    <link href="https://lqxhub.github.io/posts/9a5e1240/"/>
+    <id>https://lqxhub.github.io/posts/9a5e1240/</id>
+    <published>2023-04-17T11:08:17.000Z</published>
+    <updated>2024-07-02T06:29:58.277Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;go的 &lt;code&gt;math&lt;/code&gt; 包只提供了简单的小数操作，像常用的四舍五入，保留几位小数这些常用的操作，却没有提供，那只好自己造轮子了。&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/categories/go/"/>
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/tags/go/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>cmake笔记3</title>
+    <link href="https://lqxhub.github.io/posts/d026638f/"/>
+    <id>https://lqxhub.github.io/posts/d026638f/</id>
+    <published>2023-04-16T04:53:34.000Z</published>
+    <updated>2024-07-02T06:29:58.265Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;好久没有写东西了，上次写还是在去年10月，都快半年了。这期间，除了工作比较忙外，也开始参与一些开源项目，比如 &lt;code&gt;pika&lt;/code&gt; 刚好今年pika做了一些改动，比如编译方式从&lt;code&gt;MakeFile&lt;/code&gt; 改成了 &lt;code&gt;cmake&lt;/code&gt;。我有幸参与了一些工作，正好趁此机会，又深入学习了一下&lt;code&gt;cmake&lt;/code&gt; 的知识，这周末有时间，来记录一下&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="Cmake" scheme="https://lqxhub.github.io/categories/Cmake/"/>
+    
+    
+    <category term="Cmake" scheme="https://lqxhub.github.io/tags/Cmake/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>tcp loopbcak与unix domain区别</title>
+    <link href="https://lqxhub.github.io/posts/afb2aaad/"/>
+    <id>https://lqxhub.github.io/posts/afb2aaad/</id>
+    <published>2022-10-23T09:35:05.000Z</published>
+    <updated>2024-07-02T06:29:58.289Z</updated>
+    
+    
+    <summary type="html">访问同一台电脑上的网络，一般用的地址是 `localhost` 或者 `127.0.0.1`这两种方式，比如本机有一个Nginx服务器，想要访问本机Nginx，在浏览器中输入`localhost` 或者 `127.0.0.1`就能访问到Nginx的首页。这种方式是TCP的本地回环,还一种方式是Unix的 domain</summary>
+    
+    
+    
+    <category term="网络" scheme="https://lqxhub.github.io/categories/%E7%BD%91%E7%BB%9C/"/>
+    
+    
+    <category term="linux" scheme="https://lqxhub.github.io/tags/linux/"/>
+    
+    <category term="网络" scheme="https://lqxhub.github.io/tags/%E7%BD%91%E7%BB%9C/"/>
+    
+    <category term="tcp" scheme="https://lqxhub.github.io/tags/tcp/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>聊一聊go的内存逃逸分析</title>
+    <link href="https://lqxhub.github.io/posts/e0a249f3/"/>
+    <id>https://lqxhub.github.io/posts/e0a249f3/</id>
+    <published>2022-10-15T12:13:45.000Z</published>
+    <updated>2024-07-02T06:29:58.405Z</updated>
+    
+    
+    <summary type="html">内存逃逸分析是go的编译器在编译期间，根据变量的类型和作用域，确定变量是堆上还是栈上 简单说就是编译器在编译期间，对代码进行分析，确定变量分配内存的位置。如果变量需要分配在堆上，则称作内存逃逸了。</summary>
+    
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/categories/go/"/>
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/tags/go/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>聊一聊go的内存对齐</title>
+    <link href="https://lqxhub.github.io/posts/4992c058/"/>
+    <id>https://lqxhub.github.io/posts/4992c058/</id>
+    <published>2022-09-24T10:56:10.000Z</published>
+    <updated>2024-07-02T06:29:58.405Z</updated>
+    
+    
+    <summary type="html">同一个结构体，因为变量的排列顺序不同，就可能导致在运行时，占用的内存大一不一样，这个就是内存对齐的问题</summary>
+    
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/categories/go/"/>
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/tags/go/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>github提交pull request流程和commit重复解决办法</title>
+    <link href="https://lqxhub.github.io/posts/639c962/"/>
+    <id>https://lqxhub.github.io/posts/639c962/</id>
+    <published>2022-08-20T09:44:17.000Z</published>
+    <updated>2024-07-02T06:29:58.273Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;给Github上的开源项目贡献代码，就少不了 &lt;strong&gt;pull request&lt;/strong&gt; 也会简称为 &lt;strong&gt;PR&lt;/strong&gt; 或者 &lt;strong&gt;MR&lt;/strong&gt;&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="Git" scheme="https://lqxhub.github.io/categories/Git/"/>
+    
+    
+    <category term="Git" scheme="https://lqxhub.github.io/tags/Git/"/>
+    
+    <category term="Github" scheme="https://lqxhub.github.io/tags/Github/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>go使用build tags实现条件编译</title>
+    <link href="https://lqxhub.github.io/posts/84a29eaf/"/>
+    <id>https://lqxhub.github.io/posts/84a29eaf/</id>
+    <published>2022-07-31T09:11:07.000Z</published>
+    <updated>2024-07-02T06:29:58.277Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;在C&amp;#x2F;C++中可以通过宏定义实现条件编译，比如在不同平台的机器上，调用不同的函数，或者通过编译是传递参数，调用不同的函数，比如下面的例子&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/categories/go/"/>
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/tags/go/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>链表排序</title>
+    <link href="https://lqxhub.github.io/posts/f8e89faa/"/>
+    <id>https://lqxhub.github.io/posts/f8e89faa/</id>
+    <published>2022-05-21T08:56:04.000Z</published>
+    <updated>2024-07-02T06:29:58.405Z</updated>
+    
+    
+    <summary type="html">一直以来算法题刷的比较少，算法这块算是我的弱项。前几天，看到一个挺有意思的链表题，正好学习一下</summary>
+    
+    
+    
+    <category term="算法" scheme="https://lqxhub.github.io/categories/%E7%AE%97%E6%B3%95/"/>
+    
+    
+    <category term="算法" scheme="https://lqxhub.github.io/tags/%E7%AE%97%E6%B3%95/"/>
+    
+    <category term="数据结构" scheme="https://lqxhub.github.io/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/"/>
+    
+    <category term="LeetCode" scheme="https://lqxhub.github.io/tags/LeetCode/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>再探 go 汇编</title>
+    <link href="https://lqxhub.github.io/posts/549df04c/"/>
+    <id>https://lqxhub.github.io/posts/549df04c/</id>
+    <published>2022-05-02T11:10:56.000Z</published>
+    <updated>2024-07-02T06:29:58.293Z</updated>
+    
+    
+    <summary type="html">以前写个一篇go汇编相关的文章，这次有时间有重新学习了一下，再写一篇加深一下</summary>
+    
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/categories/go/"/>
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/tags/go/"/>
+    
+    <category term="汇编" scheme="https://lqxhub.github.io/tags/%E6%B1%87%E7%BC%96/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>golang泛型初尝试</title>
+    <link href="https://lqxhub.github.io/posts/c86abacd/"/>
+    <id>https://lqxhub.github.io/posts/c86abacd/</id>
+    <published>2022-03-19T09:38:55.000Z</published>
+    <updated>2024-07-02T06:29:58.277Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;go的1.18版本在3月15这天正式发布了 &lt;a href=&quot;https://tip.golang.org/doc/go1.18&quot;&gt;release notes&lt;/a&gt;，虽然在bate版本就可以尝试了，毕竟那时候还没正式发布，也就没去尝试了，现在正式发布了，马上就更了尝试一下。&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/categories/go/"/>
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/tags/go/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>go 使用 epoll 实现高性能tcp服务器</title>
+    <link href="https://lqxhub.github.io/posts/a59127c5/"/>
+    <id>https://lqxhub.github.io/posts/a59127c5/</id>
+    <published>2022-02-13T07:17:44.000Z</published>
+    <updated>2024-07-02T06:29:58.277Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;在go中实现一个tcp服务器还是很简单的，至少和C&amp;#x2F;C++相比还是很简单的了。&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/categories/go/"/>
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/tags/go/"/>
+    
+    <category term="网络" scheme="https://lqxhub.github.io/tags/%E7%BD%91%E7%BB%9C/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>pika编译笔记</title>
+    <link href="https://lqxhub.github.io/posts/d9a4c4a4/"/>
+    <id>https://lqxhub.github.io/posts/d9a4c4a4/</id>
+    <published>2022-02-12T06:28:10.000Z</published>
+    <updated>2024-07-02T06:29:58.289Z</updated>
+    
+    
+    <summary type="html">pika 是啥懂得都懂，这次就简单记录一下在编译过程中的遇到的一些问题和对应的解决办法</summary>
+    
+    
+    
+    <category term="pika" scheme="https://lqxhub.github.io/categories/pika/"/>
+    
+    
+    <category term="C++" scheme="https://lqxhub.github.io/tags/C/"/>
+    
+    <category term="pika" scheme="https://lqxhub.github.io/tags/pika/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>4000字详解跳表实现(挑战全网中文最详细)</title>
+    <link href="https://lqxhub.github.io/posts/4f40161/"/>
+    <id>https://lqxhub.github.io/posts/4f40161/</id>
+    <published>2021-10-17T10:30:19.000Z</published>
+    <updated>2024-07-02T06:29:58.277Z</updated>
+    
+    
+    <summary type="html">&lt;p&gt;最近在看研究公司业务的存储架构，现有的存储用redis 和 leveldb 通过自己写的中间件做数据落地。这样写业务和数据恢复有点麻烦，想着优化一下，就去研究redis和leveldb的源码。发现了跳表这个数据结构很有意思，性能不错，实现也相对简单，就想着自己用go实现一个跳表，在通过这个跳表实现一个类似redis 的 zset 功能。我会尽可能 详细的去介绍所有实现细节。&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="算法" scheme="https://lqxhub.github.io/categories/%E7%AE%97%E6%B3%95/"/>
+    
+    
+    <category term="go" scheme="https://lqxhub.github.io/tags/go/"/>
+    
+    <category term="算法" scheme="https://lqxhub.github.io/tags/%E7%AE%97%E6%B3%95/"/>
+    
+    <category term="数据结构" scheme="https://lqxhub.github.io/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/"/>
+    
+  </entry>
+  
+</feed>

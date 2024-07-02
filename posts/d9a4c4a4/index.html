@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="Ts78qICcAFtPJZg7DfwjJYFH2BsbYh7ICe1k6xMb-C8">
+  <meta name="msvalidate.01" content="C538647907B2EAEBE650AAC7463E551F">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/source-code-pro@2.38.0/source-code-pro.min.css/css?family=Lato:300,300italic,400,400italic,700,700italic|Source Code Pro:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/pace-js@1/themes/blue/pace-theme-minimal.min.css">
+  <script src="//cdn.jsdelivr.net/npm/pace-js@1/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"lqxhub.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="pika 是啥懂得都懂，这次就简单记录一下在编译过程中的遇到的一些问题和对应的解决办法">
+<meta property="og:type" content="article">
+<meta property="og:title" content="pika编译笔记">
+<meta property="og:url" content="https://lqxhub.github.io/posts/d9a4c4a4/index.html">
+<meta property="og:site_name" content="QX 的笔记">
+<meta property="og:description" content="pika 是啥懂得都懂，这次就简单记录一下在编译过程中的遇到的一些问题和对应的解决办法">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-02-12T06:28:10.000Z">
+<meta property="article:modified_time" content="2024-07-02T06:29:58.289Z">
+<meta property="article:author" content="QX">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="pika">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://lqxhub.github.io/posts/d9a4c4a4/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>pika编译笔记 | QX 的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="QX 的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">QX 的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">37</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">54</span></a>
+
+  </li>
+        <li class="menu-item menu-item-友链">
+
+    <a href="/links/" rel="section"><i class="fa fa-link fa-fw"></i>友链</a>
+
+  </li>
+        <li class="menu-item menu-item-收藏">
+
+    <a href="/collect/" rel="section"><i class="fa fa-archive fa-fw"></i>收藏</a>
+
+  </li>
+        <li class="menu-item menu-item-工具">
+
+    <a href="/tool/" rel="section"><i class="fa fa-heartbeat fa-fw"></i>工具</a>
+
+  </li>
+        <li class="menu-item menu-item-rss">
+
+    <a href="/atom.xml" rel="section"><i class="fa fa-rss fa-fw"></i>RSS</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/lqxhub" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://lqxhub.github.io/posts/d9a4c4a4/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="QX">
+      <meta itemprop="description" content="QX的笔记">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="QX 的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          pika编译笔记
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-02-12 14:28:10" itemprop="dateCreated datePublished" datetime="2022-02-12T14:28:10+08:00">2022-02-12</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-07-02 14:29:58" itemprop="dateModified" datetime="2024-07-02T14:29:58+08:00">2024-07-02</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/pika/" itemprop="url" rel="index"><span itemprop="name">pika</span></a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>1.2k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>5 分钟</span>
+            </span>
+          
+          
+          
+          
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <span id="more"></span>
+
+<p><strong>pika</strong> 是啥懂得都懂，如果你不知道，这篇文章对你也没有任何帮助</p>
+<p>这篇文章已经同步到 pika 的 github中</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/OpenAtomFoundation/pika/issues/1148">pika issue</a></p>
+<h3 id="编译-pika"><a href="#编译-pika" class="headerlink" title="编译 pika"></a>编译 pika</h3><h2 id="0-准备"><a href="#0-准备" class="headerlink" title="0 准备"></a>0 准备</h2><p>需要软件  <strong>centos7.x</strong>  <strong>gcc4.8</strong> <strong>g++4.8</strong> <strong>git</strong> <strong>cmake</strong><br>最好用centos7系列, 在别的系统中编译可能会报错, 人生苦短, 别和自己过不去</p>
+<p>使用make 编译的时候, 使用 make -jN   <em>(N&#x3D;cpu核数 加快编译速度)</em></p>
+<hr>
+<h2 id="1-安装工具"><a href="#1-安装工具" class="headerlink" title="1 安装工具"></a>1 安装工具</h2><ol>
+<li><p>gcc g++ git 一般用 yum 安装</p>
+</li>
+<li><p>安装cmake</p>
+<p>cmake 源码 <a target="_blank" rel="noopener" href="https://cmake.org/download/">https://cmake.org/download/</a></p>
+<p>cmake依赖 openssl-devel 先用yum安装 openssl-devel<br><code>yum install openssl openssl-devel</code></p>
+<p>编译安装cmake</p>
+<p>解压cmake源码</p>
+<p><code>./bootstrap</code></p>
+<p><code>make &amp;&amp; make install</code></p>
+</li>
+</ol>
+<hr>
+<h2 id="2-解决rocksdb依赖-安装必备的库"><a href="#2-解决rocksdb依赖-安装必备的库" class="headerlink" title="2 解决rocksdb依赖,安装必备的库"></a>2 解决rocksdb依赖,安装必备的库</h2><h2 id="rocksdb-依赖库"><a href="#rocksdb-依赖库" class="headerlink" title="rocksdb 依赖库"></a>rocksdb 依赖库</h2><p>snappy gflags zlib bzip2 stdc++ lz4 zstd lzma 这些库都要安装 为了能静态编译,这些库都要安装静态库</p>
+<ol>
+<li><p>编译snappy</p>
+<p><code>mkdir build &amp;&amp; cd build</code></p>
+<p>编译 动态库<br><code>cmake -DSNAPPY_BUILD_BENCHMARKS=OFF -DSNAPPY_BUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON ..</code></p>
+<p><code>make &amp;&amp; make install</code></p>
+<p>编译 静态库<br><code>cmake -DSNAPPY_BUILD_BENCHMARKS=OFF -DSNAPPY_BUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF ..</code></p>
+<p><code>make &amp;&amp; make install</code></p>
+<p>我没有找到同时编译动态库和静态库的方法，只能分开编译了</p>
+</li>
+<li><p>编译gflags</p>
+<p><code>./configure</code></p>
+<p><code>make &amp;&amp; make install</code></p>
+</li>
+<li><p>编译zlib</p>
+<p><code>./configure</code></p>
+<p><code>make &amp;&amp; make install</code></p>
+</li>
+<li><p>bzip2 一般linux都自带, 没有的用 yum 安装一个</p>
+<p><code>yum install bzip2-devel bzip2-libs</code></p>
+</li>
+<li><p>stdc++ 这个库需要安装静态库,直接 yum 安装</p>
+<p><code>yum install libstdc++ libstdc++-devel libstdc++-static</code></p>
+</li>
+<li><p>安装lz4</p>
+<p>解压,进入 源码目录</p>
+<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">cd build/cmake</span><br><span class="line"></span><br><span class="line">mkdir build &amp;&amp; build</span><br><span class="line"></span><br><span class="line">cmake <span class="attribute">-DBUILD_STATIC_LIBS</span>=ON <span class="attribute">-DLZ4_BUILD_CLI</span>=OFF <span class="attribute">-DLZ4_BUILD_LEGACY_LZ4C</span>=OFF <span class="attribute">CMAKE_BUILD_TYPE</span>=Relase -D <span class="attribute">LZ4_POSITION_INDEPENDENT_LIB</span>=OFF <span class="built_in">..</span></span><br><span class="line"></span><br><span class="line">make &amp;&amp; make install</span><br></pre></td></tr></table></figure>
+
+
+</li>
+<li><p>安装 zstd</p>
+<p>解压源码</p>
+<p><code>cd build/cmake/lib</code></p>
+<p><code>make &amp;&amp; make install</code></p>
+</li>
+<li><p>安装lzma</p>
+<p>解压源码 xz压缩包</p>
+<figure class="highlight gauss"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">./configure --<span class="keyword">disable</span>-xz --<span class="keyword">disable</span>-xzdec --<span class="keyword">disable</span>-lzmadec --<span class="keyword">disable</span>-lzmainfo --<span class="keyword">disable</span>-lzma-links --<span class="keyword">disable</span>-scripts  --<span class="keyword">disable</span>-doc</span><br><span class="line"><span class="built_in">make</span> &amp;&amp; <span class="built_in">make</span> install</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p>最后, 所有的库都安装好后,把库加到 ld 目录中。因为有的库会安装到 <strong>&#x2F;usr&#x2F;local&#x2F;lib64</strong> 目录下，但是有的系统没有把这个目录加到动态库搜索目录中,</p>
+<p>解决办法</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">echo &quot;/usr/local/lib64&quot; &gt;&gt; /etc/ld.so.conf.d/usr.local.conf</span><br><span class="line">echo &quot;/usr/local/lib&quot; &gt;&gt; /etc/ld.so.conf.d/usr.local.conf</span><br></pre></td></tr></table></figure>
+
+<p>执行 <code>ldconfig</code></p>
+<hr>
+<h2 id="安装-protobuf"><a href="#安装-protobuf" class="headerlink" title="安装 protobuf"></a>安装 protobuf</h2><p>编译 protobuf, 用cmake编译   protobuf release 地址    <a target="_blank" rel="noopener" href="https://github.com/protocolbuffers/protobuf/releases">https://github.com/protocolbuffers/protobuf/releases</a><br>下载 protobuf-cpp-XX.XX.XX.tar.gz</p>
+<p><em>xx.XX.XX 是版本号</em>，<strong>需要下载3.X版本的</strong></p>
+<p><code>./configure</code></p>
+<p><code>make &amp;&amp; make install</code></p>
+<p>protobuf 也要安装静态库</p>
+<p>到这 protobuf 安装完成</p>
+<hr>
+<h2 id="3-拉代码"><a href="#3-拉代码" class="headerlink" title="3  拉代码"></a>3  拉代码</h2><p>拉 pika 代码  github  <a target="_blank" rel="noopener" href="https://github.com/OpenAtomFoundation/pika">https://github.com/OpenAtomFoundation/pika</a><br>这里最好通过代理去拉代码,要不然 速度感人</p>
+<ol>
+<li>git 设置代理</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">git config --global https.proxy http://127.0.0.1:1080</span><br><span class="line"></span><br><span class="line">git config --global https.proxy https://127.0.0.1:1080</span><br><span class="line"></span><br><span class="line">git config --global --unset http.proxy</span><br><span class="line"></span><br><span class="line">git config --global --unset https.proxy</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>拉取 依赖库代码</li>
+</ol>
+<p>cd pika 源码目录</p>
+<p><code>git submodule init</code><br><code>git submodule update</code></p>
+<hr>
+<h2 id="4-编译"><a href="#4-编译" class="headerlink" title="4 编译"></a>4 编译</h2><h2 id="预先编译"><a href="#预先编译" class="headerlink" title="预先编译"></a>预先编译</h2><p>预先编译一次 <strong>glog</strong> 和 <strong>rocksdb</strong>, 因为这两个库直接用 pika 的 MakeFile 编译容易出问题,先预编译一下</p>
+<ol>
+<li>先特殊编译一下glog库</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">cd /third/glog</span><br><span class="line">./configu</span><br><span class="line">make &amp;&amp; make install</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>编译rocksdb</li>
+</ol>
+<p>rocksdb编译完不需要安装，只需要复制一下静态库就好</p>
+<p>使用cmake构建</p>
+<p>cmake 需要 cmake3, cmake命令如下</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">cmake笔记3 -DWITH_BZ2=ON -DWITH_MD_LIBRARY=OFF -DWITH_SNAPPY=ON -DWITH_ZLIB=ON -DWITH_ZSTD=ON -DWITH_TOOLS=OFF -DWITH_TESTS=OFF -DCMAKE_BUILD_TYPE=Release ..</span><br><span class="line"></span><br><span class="line">make -jN</span><br></pre></td></tr></table></figure>
+
+<p>把编译后的 <strong>librocksdb.a</strong> 复制到 <strong>rocksdb</strong> 的根目录</p>
+<h2 id="正常编译"><a href="#正常编译" class="headerlink" title="正常编译"></a>正常编译</h2><p>按照官方给的文档编译即可,</p>
+<p>执行  <code>make</code></p>
+<p>等待拉各个依赖模块的代码   然后自动编译</p>
+<p>前期工作做好,编译中应该不会出错</p>
+<p>检查编译是否正确</p>
+<h2 id="后续"><a href="#后续" class="headerlink" title="后续"></a>后续</h2><p>编译完成后,这个可执行文件有很多 .so的依赖, 可移植比较差, 通过 脚本编译一个依赖较少的.so文件</p>
+<p>执行 <strong>link_3_3_path-master.sh</strong> 脚本等待完成链接</p>
+<hr>
+<h2 id="编译完成"><a href="#编译完成" class="headerlink" title="编译完成"></a>编译完成</h2><ol>
+<li><p>正常编译</p>
+<p>到 <strong>output&#x2F;bin&#x2F;</strong>  目录中, 执行  <code>ldd pika</code>  如果没有 notfind 的依赖库  说明编译完成了</p>
+</li>
+<li><p>静态链接<br><strong>output&#x2F;bin&#x2F;</strong> 目录中的是正常编译的,  <strong>link_3_3_path-master.sh</strong> 同级目录下的是静态链接的</p>
+</li>
+</ol>
+<h2 id="静态链接脚本"><a href="#静态链接脚本" class="headerlink" title="静态链接脚本"></a>静态链接脚本</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">#</span><span class="language-bash">!/usr/bin/sh</span></span><br><span class="line">source_path=/root</span><br><span class="line">dependence_path=/root/pika_static</span><br><span class="line">g++ \</span><br><span class="line"><span class="meta prompt_">  $</span><span class="language-bash">&#123;source_path&#125;/pika/src/build_version.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_stable_log.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_consensus.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_slave_node.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_statistic.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_client_processor.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_admin.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_binlog.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_bit.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_proxy.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_proxy_cli.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_proxy_conn.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_client_conn.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_command.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_pubsub.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_conf.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_dispatch_thread.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_hash.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_hyperloglog.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_kv.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_list.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_monitor_thread.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_server.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_set.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_geo.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_geohash.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_geohash_helper.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_binlog_transverter.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_binlog_reader.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_partition.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_repl_bgworker.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_repl_client.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_repl_client_conn.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_repl_client_thread.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_repl_server.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_repl_server_conn.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_repl_server_thread.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_cmd_table_manager.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_auxiliary_thread.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_rm.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_table.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_rsync_service.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_inner_message.pb.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_slot.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_data_distribution.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_meta.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_cluster.o \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/third/slash/slash/lib/libslash.a \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/third/pink/pink/lib/libpink.a \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/third/blackwidow/lib/libblackwidow.a \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/third/rocksdb/librocksdb.a \</span></span><br><span class="line"><span class="language-bash">  <span class="variable">$&#123;source_path&#125;</span>/pika/src/pika_zset.o -static-libstdc++ -Wl,-Bstatic -lprotobuf -llz4 -lzstd -llz4 -lglog -lgflags -llzma -lsnappy -Wl,-Bdynamic -lpthread -lrt -lz -lbz2 -Wl,--dynamic-linker=/lib64/ld-linux-x86-64.so.2 -o pika</span> </span><br></pre></td></tr></table></figure>
+
+<p><strong>-Wl,-Bstatic</strong> 后面的是要 <strong>静态链接</strong> 的库</p>
+<p><strong>-Wl,-Bdynamic</strong> 后面的是要 <strong>动态链</strong> 接的库</p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>QX
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://lqxhub.github.io/posts/d9a4c4a4/" title="pika编译笔记">https://lqxhub.github.io/posts/d9a4c4a4/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+  <li class="post-copyright-license">
+    <strong>暂时还懒得去弄评论区，有问题欢迎 <a href="mailto:lqxlucky@qq.com" title="lqxlucky@qq.com" rel="noopener" target="_blank">邮件</a> 交流</strong>
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/C/" rel="tag"><i class="fa fa-tag"></i> C++</a>
+              <a href="/tags/pika/" rel="tag"><i class="fa fa-tag"></i> pika</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/4f40161/" rel="prev" title="4000字详解跳表实现(挑战全网中文最详细)">
+      <i class="fa fa-chevron-left"></i> 4000字详解跳表实现(挑战全网中文最详细)
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/posts/a59127c5/" rel="next" title="go 使用 epoll 实现高性能tcp服务器">
+      go 使用 epoll 实现高性能tcp服务器 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <!--关于我页面去掉左边栏-->
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BC%96%E8%AF%91-pika"><span class="nav-number">1.</span> <span class="nav-text">编译 pika</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0-%E5%87%86%E5%A4%87"><span class="nav-number"></span> <span class="nav-text">0 准备</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E5%AE%89%E8%A3%85%E5%B7%A5%E5%85%B7"><span class="nav-number"></span> <span class="nav-text">1 安装工具</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E8%A7%A3%E5%86%B3rocksdb%E4%BE%9D%E8%B5%96-%E5%AE%89%E8%A3%85%E5%BF%85%E5%A4%87%E7%9A%84%E5%BA%93"><span class="nav-number"></span> <span class="nav-text">2 解决rocksdb依赖,安装必备的库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#rocksdb-%E4%BE%9D%E8%B5%96%E5%BA%93"><span class="nav-number"></span> <span class="nav-text">rocksdb 依赖库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-protobuf"><span class="nav-number"></span> <span class="nav-text">安装 protobuf</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E6%8B%89%E4%BB%A3%E7%A0%81"><span class="nav-number"></span> <span class="nav-text">3  拉代码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E7%BC%96%E8%AF%91"><span class="nav-number"></span> <span class="nav-text">4 编译</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%A2%84%E5%85%88%E7%BC%96%E8%AF%91"><span class="nav-number"></span> <span class="nav-text">预先编译</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AD%A3%E5%B8%B8%E7%BC%96%E8%AF%91"><span class="nav-number"></span> <span class="nav-text">正常编译</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%8E%E7%BB%AD"><span class="nav-number"></span> <span class="nav-text">后续</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%96%E8%AF%91%E5%AE%8C%E6%88%90"><span class="nav-number"></span> <span class="nav-text">编译完成</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9D%99%E6%80%81%E9%93%BE%E6%8E%A5%E8%84%9A%E6%9C%AC"><span class="nav-number"></span> <span class="nav-text">静态链接脚本</span></a></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="QX"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">QX</p>
+  <div class="site-description" itemprop="description">QX的笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">54</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">37</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/lqxhub" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;lqxhub" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:lqxlucky@qq.com" title="E-Mail → mailto:lqxlucky@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">QX</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    <span title="站点总字数">87k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    <span title="站点阅读时长">5:15</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="//cdn.jsdelivr.net/gh/theme-next/theme-next-canvas-nest@1/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
