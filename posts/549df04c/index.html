@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="Ts78qICcAFtPJZg7DfwjJYFH2BsbYh7ICe1k6xMb-C8">
+  <meta name="msvalidate.01" content="C538647907B2EAEBE650AAC7463E551F">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/source-code-pro@2.38.0/source-code-pro.min.css/css?family=Lato:300,300italic,400,400italic,700,700italic|Source Code Pro:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/pace-js@1/themes/blue/pace-theme-minimal.min.css">
+  <script src="//cdn.jsdelivr.net/npm/pace-js@1/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"lqxhub.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="以前写个一篇go汇编相关的文章，这次有时间有重新学习了一下，再写一篇加深一下">
+<meta property="og:type" content="article">
+<meta property="og:title" content="再探 go 汇编">
+<meta property="og:url" content="https://lqxhub.github.io/posts/549df04c/index.html">
+<meta property="og:site_name" content="QX 的笔记">
+<meta property="og:description" content="以前写个一篇go汇编相关的文章，这次有时间有重新学习了一下，再写一篇加深一下">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lqxhub.github.io/posts/549df04c/3622259-778243d5661a39cd.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/549df04c/3622259-2629b0b47ac282e0.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/549df04c/3622259-66c52609a214fb8c.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/549df04c/3622259-029c4c14cf366e1c.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/549df04c/3622259-4d9226937d2d365d.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/549df04c/3622259-418927831c585496.webp">
+<meta property="article:published_time" content="2022-05-02T11:10:56.000Z">
+<meta property="article:modified_time" content="2024-07-10T06:06:38.910Z">
+<meta property="article:author" content="QX">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="汇编">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lqxhub.github.io/posts/549df04c/3622259-778243d5661a39cd.webp">
+
+<link rel="canonical" href="https://lqxhub.github.io/posts/549df04c/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>再探 go 汇编 | QX 的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="QX 的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">QX 的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">37</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">54</span></a>
+
+  </li>
+        <li class="menu-item menu-item-友链">
+
+    <a href="/links/" rel="section"><i class="fa fa-link fa-fw"></i>友链</a>
+
+  </li>
+        <li class="menu-item menu-item-收藏">
+
+    <a href="/collect/" rel="section"><i class="fa fa-archive fa-fw"></i>收藏</a>
+
+  </li>
+        <li class="menu-item menu-item-工具">
+
+    <a href="/tool/" rel="section"><i class="fa fa-heartbeat fa-fw"></i>工具</a>
+
+  </li>
+        <li class="menu-item menu-item-rss">
+
+    <a href="/atom.xml" rel="section"><i class="fa fa-rss fa-fw"></i>RSS</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/lqxhub" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://lqxhub.github.io/posts/549df04c/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="QX">
+      <meta itemprop="description" content="QX的笔记">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="QX 的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          再探 go 汇编
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-05-02 19:10:56" itemprop="dateCreated datePublished" datetime="2022-05-02T19:10:56+08:00">2022-05-02</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-07-10 14:06:38" itemprop="dateModified" datetime="2024-07-10T14:06:38+08:00">2024-07-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/go/" itemprop="url" rel="index"><span itemprop="name">go</span></a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>3.5k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>13 分钟</span>
+            </span>
+          
+          
+          
+          
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <span id="more"></span>
+
+<p>五一假期在家没事逛论坛的时候，发现了一个宝藏网站，<a target="_blank" rel="noopener" href="https://godbolt.org/">传送门</a>  这个网站可以在线生成多种语言的汇编代码，有这个好东西，那必须拿go实验一番。</p>
+<p>很久之前我写过一篇go通过go汇编看多返回值实现的文章<a target="_blank" rel="noopener" href="https://www.jianshu.com/p/0e0ee4091d97">传送门</a>。当时写的时候比较早，后来 go 1.17 对函数调用时，传递参数做了修改，简单说就是go1.17之前，函数参数是通过栈空间来传递的，在go1.17时做出了改变，在一些平台上（AMD64）可以像C,C++那样使用寄存器传递参数和函数返回值了。为什么做出这个改变呢，原因就是寄存器更快。虽然内存已经很快了，但是还是没法和寄存器相比。之前为啥不用寄存器，用栈空间，原因是实现简单，不用考虑不同平台，不用架构的区别。</p>
+<p>简单总结一下两种方式</p>
+<ol>
+<li>栈空间：</li>
+</ol>
+<ul>
+<li>优点：实现简单，不用区分不同的平台，通用性强</li>
+<li>缺点：效率低</li>
+</ul>
+<ol start="2">
+<li>寄存器：</li>
+</ol>
+<ul>
+<li>优点：速度快</li>
+<li>缺点：通用性差，不同的平台需要单独处理<br>当然，这里说的通用性差是对于编译器来说的</li>
+</ul>
+<h2 id="go汇编基础知识"><a href="#go汇编基础知识" class="headerlink" title="go汇编基础知识"></a>go汇编基础知识</h2><p>再来总结一次go汇编的基础知识吧，现在回头看之前总结的还是不全面的<br>go使用的 <strong>plan9</strong> 汇编，这个和 <strong>AT&amp;T</strong> 的汇编差别还是有点大的，我个人感觉plan9汇编比较重要的就是四个寄存器，只要理解了这四个寄存器，汇编就理解了一半了</p>
+<p>汇编中个几个术语:</p>
+<ul>
+<li>栈：进程、线程、goroutine 都有自己的调用栈，先进后出（FILO）</li>
+<li>栈帧：可以理解是函数调用时，在栈上为函数所分配的内存区域</li>
+<li>调用者：caller，比如：A 函数调用了 B 函数，那么 A 就是调用者</li>
+<li>被调者：callee，比如：A 函数调用了 B 函数，那么 B 就是被调者</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>寄存器</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SB(Static base pointer)</td>
+<td>global symbols 全局静态指针</td>
+</tr>
+<tr>
+<td>FP(Frame pointer)</td>
+<td>arguments and locals 指向栈帧的开始</td>
+</tr>
+<tr>
+<td>SP(Stack pointer)</td>
+<td>top of stack 指向栈顶</td>
+</tr>
+<tr>
+<td>PC(Program counter)</td>
+<td>jumps and branches 简单说程序计数器</td>
+</tr>
+</tbody></table>
+<p>简单展开说一下几个寄存器吧</p>
+<ul>
+<li>SB：全局静态指针，即程序地址空间的开始地址。一般用在声明函数、全局变量中。</li>
+<li>FP：指向的是 caller 调用 callee 时传递的第一个参数的位置，可以看作是指向两个函数栈的分割位置；但是FP指向的位置不在 callee 的 stack frame 之内。而是在 caller 的 stack frame 上，指向调用 add 函数时传递的第一个参数的位置；可以在 callee 中用 <code>symbol+offset(FP)</code> 来获取入参的参数值，比如 <code>a+8(FP)</code>。虽然 <code>symbol</code> 没有什么具体意义，但是不加编译器会报错。</li>
+<li>SP：这个是最常用的寄存器了，同样也是最复杂的寄存器了。不同的引用方式，代表不同的位置。SP寄存器 分为伪 SP 寄存器和硬件 SP 寄存器。<code>symbol+offset(SP)</code> 形式，则表示伪寄存器 SP （这个也简称为 <strong>BP</strong>）。如果是 <code>offset(SP)</code> 则表示硬件寄存器 SP。伪 SP 寄存器指向当前栈帧第一个局部变量的结束位置；硬件SP指向的是整个函数栈结束的位置。<strong>有个比较坑的地方：</strong>对于编译输出(go tool compile -S &#x2F; go tool objdump)的代码来讲，所有的 SP 都是硬件 SP 寄存器，无论是否带 symbol（这一点非常具有迷惑性，需要慢慢理解。往往在分析编译输出的汇编时，看到的就是硬件 SP 寄存器）。</li>
+<li>PC：这个就是计算机常见的 pc 寄存器，在 x86 平台下对应 ip 寄存器，amd64 上则是 rip。这个很少有用到。</li>
+</ul>
+<p>通过一个栈帧的图来理解一下这几个寄存器</p>
+<p><img src="/posts/549df04c/3622259-778243d5661a39cd.webp" alt="栈帧.jpg"></p>
+<p>大体的栈帧就是图中的这样，图中标注的寄存器都是以 <strong>callee</strong> 函数为基准的</p>
+<p>通过图中可知，如果callee函数中没有局部变量的话，SP硬寄存器和SP伪寄存器指向的是同一个地方</p>
+<p>伪 FP 寄存器对应的是 caller 函数的帧指针，一般用来访问 callee 函数的入参参数和返回值。伪 SP 栈指针对应的是当前 callee 函数栈帧的底部（不包括参数和返回值部分），一般用于定位局部变量。硬件 SP 是一个比较特殊的寄存器，因为还存在一个同名的 SP 真寄存器，硬件 SP 寄存器对应的是栈的顶部。</p>
+<p>在编写 Go 汇编时，当需要区分伪寄存器和真寄存器的时候只需要记住一点：伪寄存器一般需要一个标识符和偏移量为前缀，如果没有标识符前缀则是真寄存器。比如(SP)、+8(SP)没有标识符前缀为真 SP 寄存器，而 a(SP)、b+8(SP)有标识符为前缀表示伪寄存器。</p>
+<p><strong>还有一点</strong></p>
+<p>如果callee的栈空间大小是0的话， <strong>caller BP</strong> 是不会被压入栈中的，此时的SP硬件寄存器和伪FP寄存器指向的是同一个位置。</p>
+<p>在汇编中，函数的定义</p>
+<figure class="highlight pgsql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">TEXT</span>    &quot;&quot;.<span class="keyword">add</span>(SB), NOSPLIT|ABIInternal, <span class="meta">$0</span><span class="number">-24</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><figcaption><span>是一个特殊的指令，定义一个函数</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">```.add``` 是函数的名</span><br><span class="line"></span><br><span class="line">```NOSPLIT``` 向编译器表明不应该插入 stack-split 的用来检查栈需要扩张的前导指令</span><br><span class="line"></span><br><span class="line">``` $0-24``` 这两个参数，0是声明这个函数需要的栈空间的大小，一般来说就是局部变量需要的空间，单位是位。</span><br><span class="line">24是声明函数传入参数和返回值需要的栈空间的大小，单位也是位。</span><br><span class="line"></span><br><span class="line">## 生成汇编</span><br><span class="line">了解了这些基本概念后，上一段代码，通过汇编看一下不同版本go是如何处理函数传递参数的</span><br><span class="line"></span><br><span class="line">先通过一段简单的代码看一下区别</span><br><span class="line"></span><br><span class="line">```go</span><br><span class="line">package main</span><br><span class="line"></span><br><span class="line">func main()&#123;</span><br><span class="line">    add(10,20)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">//go:noinline</span><br><span class="line">func add(a,b int) int&#123;</span><br><span class="line">    return a+b</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>//go:noinline</code><br>这个是告诉编译器不要对这个函数内联，这个东西叫go的编译指令，go还有你很多别的指令，这里就不展开了。<br>想想go也挺有意思的，C++是通过 <code> inline</code> 显式的指定要内联，go是告诉编译器不要内联。</p>
+<p>先看一下在1.16下的汇编代码</p>
+<figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="symbol">main_pc0:</span></span><br><span class="line"><span class="meta">        .file</span> <span class="number">1</span> <span class="string">&quot;&lt;source&gt;&quot;</span></span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">5</span> <span class="number">0</span></span><br><span class="line">        TEXT    <span class="string">&quot;&quot;</span>.main(SB), ABIInternal, <span class="number">$32</span>-<span class="number">0</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    (TLS), <span class="built_in">CX</span></span><br><span class="line">        CMPQ    <span class="built_in">SP</span>, <span class="number">16</span>(<span class="built_in">CX</span>)</span><br><span class="line">        PCDATA  <span class="number">$0</span>, $-<span class="number">2</span></span><br><span class="line">        JLS     main_pc64</span><br><span class="line">        PCDATA  <span class="number">$0</span>, $-<span class="number">1</span></span><br><span class="line">        SUBQ    <span class="number">$32</span>, <span class="built_in">SP</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="built_in">BP</span>, <span class="number">24</span>(<span class="built_in">SP</span>)</span><br><span class="line">        LEAQ    <span class="number">24</span>(<span class="built_in">SP</span>), <span class="built_in">BP</span></span><br><span class="line">        FUNCDATA        <span class="number">$0</span>, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line">        FUNCDATA        <span class="number">$1</span>, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">11</span> <span class="number">0</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="number">$10</span>, (<span class="built_in">SP</span>)</span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="number">$20</span>, <span class="number">8</span>(<span class="built_in">SP</span>)</span><br><span class="line">        PCDATA  <span class="number">$1</span>, <span class="number">$0</span></span><br><span class="line">        <span class="keyword">CALL</span>    <span class="string">&quot;&quot;</span>.add(SB)</span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">12</span> <span class="number">0</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="number">24</span>(<span class="built_in">SP</span>), <span class="built_in">BP</span></span><br><span class="line">        ADDQ    <span class="number">$32</span>, <span class="built_in">SP</span></span><br><span class="line">        <span class="keyword">RET</span></span><br><span class="line">        <span class="keyword">NOP</span></span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">5</span> <span class="number">0</span></span><br><span class="line">        PCDATA  <span class="number">$1</span>, $-<span class="number">1</span></span><br><span class="line">        PCDATA  <span class="number">$0</span>, $-<span class="number">2</span></span><br><span class="line">        <span class="keyword">NOP</span></span><br><span class="line"><span class="symbol">main_pc64:</span></span><br><span class="line">        <span class="keyword">CALL</span>    runtime<span class="number">.</span>morestack_noctxt(SB)</span><br><span class="line">        PCDATA  <span class="number">$0</span>, $-<span class="number">1</span></span><br><span class="line">        <span class="keyword">JMP</span>     main_pc0</span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">21</span> <span class="number">0</span></span><br><span class="line">        TEXT    <span class="string">&quot;&quot;</span>.add(SB), <span class="built_in">NOSPLIT</span>|ABIInternal, <span class="number">$0</span>-<span class="number">24</span></span><br><span class="line">        FUNCDATA        <span class="number">$0</span>, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line">        FUNCDATA        <span class="number">$1</span>, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">22</span> <span class="number">0</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="string">&quot;&quot;</span>.b+<span class="number">16</span>(<span class="built_in">SP</span>), <span class="built_in">AX</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="string">&quot;&quot;</span>.a+<span class="number">8</span>(<span class="built_in">SP</span>), <span class="built_in">CX</span></span><br><span class="line">        ADDQ    <span class="built_in">CX</span>, <span class="built_in">AX</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="built_in">AX</span>, <span class="string">&quot;&quot;</span>.~<span class="built_in">r2</span>+<span class="number">24</span>(<span class="built_in">SP</span>)</span><br><span class="line">        <span class="keyword">RET</span></span><br></pre></td></tr></table></figure>
+
+
+<p>代码有很多，只关注下面图中标注的</p>
+<p><img src="/posts/549df04c/3622259-2629b0b47ac282e0.webp"></p>
+<p>通 <code> MOVQ    &quot;&quot;.b+16(SP), AX</code> 和 <code>MOVQ    &quot;&quot;.a+8(SP), CX</code> 可以得知，函数是通过SP寄存器偏移完成传递参数的。<br>这里要注意，<code>.b+16(SP)</code> 这种写法看着像是使用的是伪SP寄存器，实际上用的是硬件SP寄存器</p>
+<p>同样的，在函数调用之前，也会把数值放到栈的指定位置</p>
+<p><code>MOVQ    $10, (SP)</code> , <code>MOVQ    $20, 8(SP)</code></p>
+<p>把编译器换成最新的 1.18看一下</p>
+<figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">main_pc0:</span><br><span class="line">        .file <span class="number">1</span> <span class="string">&quot;&lt;source&gt;&quot;</span></span><br><span class="line">        .loc <span class="number">1</span> <span class="number">5</span> <span class="number">0</span></span><br><span class="line">        TEXT    <span class="string">&quot;&quot;</span>.main(SB), ABIInternal, <span class="variable">$24</span><span class="literal">-0</span></span><br><span class="line">        CMPQ    <span class="built_in">SP</span>, <span class="number">16</span>(R14)</span><br><span class="line">        PCDATA  <span class="variable">$0</span>, <span class="variable">$</span><span class="literal">-2</span></span><br><span class="line">        JLS     main_pc47</span><br><span class="line">        PCDATA  <span class="variable">$0</span>, <span class="variable">$</span><span class="literal">-1</span></span><br><span class="line">        SUBQ    <span class="variable">$24</span>, <span class="built_in">SP</span></span><br><span class="line">        MOVQ    BP, <span class="number">16</span>(<span class="built_in">SP</span>)</span><br><span class="line">        LEAQ    <span class="number">16</span>(<span class="built_in">SP</span>), BP</span><br><span class="line">        FUNCDATA        <span class="variable">$0</span>, gclocals·<span class="number">33</span>cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line">        FUNCDATA        <span class="variable">$1</span>, gclocals·<span class="number">33</span>cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line">        .loc <span class="number">1</span> <span class="number">11</span> <span class="number">0</span></span><br><span class="line">        MOVL    <span class="variable">$10</span>, AX</span><br><span class="line">        MOVL    <span class="variable">$20</span>, BX</span><br><span class="line">        PCDATA  <span class="variable">$1</span>, <span class="variable">$0</span></span><br><span class="line">        NOP</span><br><span class="line">        CALL    <span class="string">&quot;&quot;</span>.add(SB)</span><br><span class="line">        .loc <span class="number">1</span> <span class="number">12</span> <span class="number">0</span></span><br><span class="line">        MOVQ    <span class="number">16</span>(<span class="built_in">SP</span>), BP</span><br><span class="line">        ADDQ    <span class="variable">$24</span>, <span class="built_in">SP</span></span><br><span class="line">        RET</span><br><span class="line">main_pc47:</span><br><span class="line">        NOP</span><br><span class="line">        .loc <span class="number">1</span> <span class="number">5</span> <span class="number">0</span></span><br><span class="line">        PCDATA  <span class="variable">$1</span>, <span class="variable">$</span><span class="literal">-1</span></span><br><span class="line">        PCDATA  <span class="variable">$0</span>, <span class="variable">$</span><span class="literal">-2</span></span><br><span class="line">        CALL    runtime.morestack_noctxt(SB)</span><br><span class="line">        PCDATA  <span class="variable">$0</span>, <span class="variable">$</span><span class="literal">-1</span></span><br><span class="line">        JMP     main_pc0</span><br><span class="line">        .loc <span class="number">1</span> <span class="number">21</span> <span class="number">0</span></span><br><span class="line">        TEXT    <span class="string">&quot;&quot;</span>.add(SB), NOSPLIT|ABIInternal, <span class="variable">$0</span><span class="literal">-16</span></span><br><span class="line">        FUNCDATA        <span class="variable">$0</span>, gclocals·<span class="number">33</span>cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line">        FUNCDATA        <span class="variable">$1</span>, gclocals·<span class="number">33</span>cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line">        FUNCDATA        <span class="variable">$5</span>, <span class="string">&quot;&quot;</span>.add.arginfo1(SB)</span><br><span class="line">        FUNCDATA        <span class="variable">$6</span>, <span class="string">&quot;&quot;</span>.add.argliveinfo(SB)</span><br><span class="line">        PCDATA  <span class="variable">$3</span>, <span class="variable">$1</span></span><br><span class="line">        .loc <span class="number">1</span> <span class="number">22</span> <span class="number">0</span></span><br><span class="line">        ADDQ    BX, AX</span><br><span class="line">        RET</span><br></pre></td></tr></table></figure>
+<p>在1.18的汇编代码中就没有通过栈空间来传递参数了，而是直接通过寄存器完成操作，</p>
+<figure class="highlight plaintext"><figcaption><span>BX, AX```，并且返回值直接放到寄存器中。</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">寄存器数量是有上限的，如果传递的参数个数超过了寄存器的上限，又会怎样处理呢</span><br><span class="line">```go</span><br><span class="line">package main</span><br><span class="line"></span><br><span class="line">func main()&#123;</span><br><span class="line">    add(1,2,3,4,5,6,7,8,9,10,11,12)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">//go:noinline</span><br><span class="line">func add(a,b,c,d,e,f,g,h,i,j,k,l int) int&#123;</span><br><span class="line">    return a+b+c+d+e+f+g+h+i+j+k+l</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>对应的汇编</p>
+<figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line"><span class="symbol">main_pc0:</span></span><br><span class="line"><span class="meta">        .file</span> <span class="number">1</span> <span class="string">&quot;&lt;source&gt;&quot;</span></span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">5</span> <span class="number">0</span></span><br><span class="line">        TEXT    <span class="string">&quot;&quot;</span>.main(SB), ABIInternal, <span class="number">$104</span>-<span class="number">0</span></span><br><span class="line">        CMPQ    <span class="built_in">SP</span>, <span class="number">16</span>(<span class="built_in">R14</span>)</span><br><span class="line">        PCDATA  <span class="number">$0</span>, $-<span class="number">2</span></span><br><span class="line">        JLS     main_pc111</span><br><span class="line">        PCDATA  <span class="number">$0</span>, $-<span class="number">1</span></span><br><span class="line">        SUBQ    <span class="number">$104</span>, <span class="built_in">SP</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="built_in">BP</span>, <span class="number">96</span>(<span class="built_in">SP</span>)</span><br><span class="line">        LEAQ    <span class="number">96</span>(<span class="built_in">SP</span>), <span class="built_in">BP</span></span><br><span class="line">        FUNCDATA        <span class="number">$0</span>, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line">        FUNCDATA        <span class="number">$1</span>, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">11</span> <span class="number">0</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="number">$10</span>, (<span class="built_in">SP</span>)</span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="number">$11</span>, <span class="number">8</span>(<span class="built_in">SP</span>)</span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="number">$12</span>, <span class="number">16</span>(<span class="built_in">SP</span>)</span><br><span class="line">        MOVL    <span class="number">$1</span>, <span class="built_in">AX</span></span><br><span class="line">        MOVL    <span class="number">$2</span>, <span class="built_in">BX</span></span><br><span class="line">        MOVL    <span class="number">$3</span>, <span class="built_in">CX</span></span><br><span class="line">        MOVL    <span class="number">$4</span>, <span class="built_in">DI</span></span><br><span class="line">        MOVL    <span class="number">$5</span>, <span class="built_in">SI</span></span><br><span class="line">        MOVL    <span class="number">$6</span>, <span class="built_in">R8</span></span><br><span class="line">        MOVL    <span class="number">$7</span>, <span class="built_in">R9</span></span><br><span class="line">        MOVL    <span class="number">$8</span>, <span class="built_in">R10</span></span><br><span class="line">        MOVL    <span class="number">$9</span>, <span class="built_in">R11</span></span><br><span class="line">        PCDATA  <span class="number">$1</span>, <span class="number">$0</span></span><br><span class="line">        <span class="keyword">NOP</span></span><br><span class="line">        <span class="keyword">CALL</span>    <span class="string">&quot;&quot;</span>.add(SB)</span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">12</span> <span class="number">0</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="number">96</span>(<span class="built_in">SP</span>), <span class="built_in">BP</span></span><br><span class="line">        ADDQ    <span class="number">$104</span>, <span class="built_in">SP</span></span><br><span class="line">        <span class="keyword">RET</span></span><br><span class="line"><span class="symbol">main_pc111:</span></span><br><span class="line">        <span class="keyword">NOP</span></span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">5</span> <span class="number">0</span></span><br><span class="line">        PCDATA  <span class="number">$1</span>, $-<span class="number">1</span></span><br><span class="line">        PCDATA  <span class="number">$0</span>, $-<span class="number">2</span></span><br><span class="line">        <span class="keyword">CALL</span>    runtime<span class="number">.</span>morestack_noctxt(SB)</span><br><span class="line">        PCDATA  <span class="number">$0</span>, $-<span class="number">1</span></span><br><span class="line">        <span class="keyword">JMP</span>     main_pc0</span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">21</span> <span class="number">0</span></span><br><span class="line">        TEXT    <span class="string">&quot;&quot;</span>.add(SB), <span class="built_in">NOSPLIT</span>|ABIInternal, <span class="number">$0</span>-<span class="number">96</span></span><br><span class="line">        FUNCDATA        <span class="number">$0</span>, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line">        FUNCDATA        <span class="number">$1</span>, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)</span><br><span class="line">        FUNCDATA        <span class="number">$5</span>, <span class="string">&quot;&quot;</span>.add<span class="number">.</span>arginfo1(SB)</span><br><span class="line">        FUNCDATA        <span class="number">$6</span>, <span class="string">&quot;&quot;</span>.add<span class="number">.</span>argliveinfo(SB)</span><br><span class="line">        PCDATA  <span class="number">$3</span>, <span class="number">$1</span></span><br><span class="line"><span class="meta">        .loc</span> <span class="number">1</span> <span class="number">22</span> <span class="number">0</span></span><br><span class="line">        LEAQ    (<span class="built_in">BX</span>)(<span class="built_in">AX</span>*<span class="number">1</span>), <span class="built_in">DX</span></span><br><span class="line">        ADDQ    <span class="built_in">DX</span>, <span class="built_in">CX</span></span><br><span class="line">        ADDQ    <span class="built_in">DI</span>, <span class="built_in">CX</span></span><br><span class="line">        ADDQ    <span class="built_in">SI</span>, <span class="built_in">CX</span></span><br><span class="line">        ADDQ    <span class="built_in">R8</span>, <span class="built_in">CX</span></span><br><span class="line">        ADDQ    <span class="built_in">R9</span>, <span class="built_in">CX</span></span><br><span class="line">        ADDQ    <span class="built_in">R10</span>, <span class="built_in">CX</span></span><br><span class="line">        ADDQ    <span class="built_in">R11</span>, <span class="built_in">CX</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="string">&quot;&quot;</span>.j+<span class="number">8</span>(<span class="built_in">SP</span>), <span class="built_in">DX</span></span><br><span class="line">        ADDQ    <span class="built_in">DX</span>, <span class="built_in">CX</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="string">&quot;&quot;</span>.k+<span class="number">16</span>(<span class="built_in">SP</span>), <span class="built_in">DX</span></span><br><span class="line">        ADDQ    <span class="built_in">DX</span>, <span class="built_in">CX</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="string">&quot;&quot;</span>.l+<span class="number">24</span>(<span class="built_in">SP</span>), <span class="built_in">DX</span></span><br><span class="line">        LEAQ    (<span class="built_in">DX</span>)(<span class="built_in">CX</span>*<span class="number">1</span>), <span class="built_in">AX</span></span><br><span class="line">        <span class="keyword">RET</span></span><br></pre></td></tr></table></figure>
+<p>通过汇编可以看到，会先使用寄存器，当寄存器不够时，会使用栈空间。</p>
+<h2 id="手写汇编"><a href="#手写汇编" class="headerlink" title="手写汇编"></a>手写汇编</h2><p>通过手写一段汇编代码，验证一下各个寄存器的位置，我用的go版本是 1.14.13，所以传参数用的是栈空间。<br>在 <strong>main.go</strong> 文件中</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">add</span><span class="params">(<span class="type">int</span>, <span class="type">int</span>)</span></span> <span class="type">int</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="built_in">print</span>(add(<span class="number">10</span>, <span class="number">20</span>))</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>定义一个 <strong>main</strong> 函数作为整个程序的入口，声明一个 <code>add(int, int) int</code> 函数，add 函数的具体实现是用汇编写的,<br>在 <strong>main.go</strong> 同级目录下创建一个 <strong>add_amd64.s</strong> 的文件。</p>
+<h3 id="使用硬BP寄存器"><a href="#使用硬BP寄存器" class="headerlink" title="使用硬BP寄存器"></a>使用硬BP寄存器</h3><figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">TEXT ·<span class="keyword">add</span>(SB), <span class="number">$0</span>-<span class="number">24</span></span><br><span class="line">    <span class="keyword">MOVQ</span> <span class="number">8</span>(<span class="built_in">SP</span>), <span class="built_in">AX</span></span><br><span class="line">    <span class="keyword">MOVQ</span> <span class="number">16</span>(<span class="built_in">SP</span>), <span class="built_in">BX</span></span><br><span class="line">    ADDQ <span class="built_in">BX</span>, <span class="built_in">AX</span></span><br><span class="line">    <span class="keyword">MOVQ</span> <span class="built_in">AX</span>, <span class="number">24</span>(<span class="built_in">SP</span>)</span><br><span class="line">    <span class="keyword">RET</span></span><br></pre></td></tr></table></figure>
+<p>使用 <strong>go run .</strong> 命令，看一下程序执行的结果。<br><img src="/posts/549df04c/3622259-66c52609a214fb8c.webp"></p>
+<p>这时候的栈帧如图所示<br><img src="/posts/549df04c/3622259-029c4c14cf366e1c.webp"><br>因为add函数栈空间是0，所以伪SP寄存器没有被压入栈中，伪SP寄存器和硬件SP寄存器指向的是同一个位置。</p>
+<h3 id="使用伪SP寄存器"><a href="#使用伪SP寄存器" class="headerlink" title="使用伪SP寄存器"></a>使用伪SP寄存器</h3><figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">TEXT ·<span class="keyword">add</span>(SB), <span class="number">$16</span>-<span class="number">24</span></span><br><span class="line">    <span class="keyword">MOVQ</span> a+<span class="number">16</span>(<span class="built_in">SP</span>), <span class="built_in">AX</span></span><br><span class="line">    <span class="keyword">MOVQ</span> b+<span class="number">24</span>(<span class="built_in">SP</span>), <span class="built_in">BX</span></span><br><span class="line">    ADDQ <span class="built_in">BX</span>, <span class="built_in">AX</span></span><br><span class="line">    <span class="keyword">MOVQ</span> <span class="built_in">AX</span>, <span class="keyword">ret</span>+<span class="number">32</span>(<span class="built_in">SP</span>)</span><br><span class="line">    <span class="keyword">RET</span></span><br></pre></td></tr></table></figure>
+<p>为了区分对比，这时候把add函数的栈空间设置为16，然后使用伪SP寄存器来获取值。<br>执行结果如下：<br><img src="/posts/549df04c/3622259-4d9226937d2d365d.webp"></p>
+<p>这时候的栈空间如图<br><img src="/posts/549df04c/3622259-418927831c585496.webp"></p>
+<h3 id="使用FP寄存器"><a href="#使用FP寄存器" class="headerlink" title="使用FP寄存器"></a>使用FP寄存器</h3><p>代码如下:</p>
+<figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">TEXT ·<span class="keyword">add</span>(SB), <span class="number">$16</span>-<span class="number">24</span></span><br><span class="line">    <span class="keyword">MOVQ</span> a+<span class="number">0</span>(FP), <span class="built_in">AX</span></span><br><span class="line">    <span class="keyword">MOVQ</span> b+<span class="number">8</span>(FP), <span class="built_in">BX</span></span><br><span class="line">    ADDQ <span class="built_in">BX</span>, <span class="built_in">AX</span></span><br><span class="line">    <span class="keyword">MOVQ</span> <span class="built_in">AX</span>, <span class="keyword">ret</span>+<span class="number">16</span>(FP)</span><br><span class="line">    <span class="keyword">RET</span></span><br></pre></td></tr></table></figure>
+<p>执行结果:</p>
+<p>![](3622259-66c52609a214fb8c (1).webp)<br>说明还是正确的，此时的栈空间没有变化，和上面是一样的。</p>
+<p>到这，应该能理解各个寄存器的相对位置了吧：<br>在callee栈空间不为0的时候，</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">FP</span> = 硬件SP + framsize + <span class="number">16</span></span><br><span class="line"><span class="attr">SP</span> = 硬件SP + framsize</span><br></pre></td></tr></table></figure>
+<p>在callee栈空间为0的时候，</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">FP</span> = 硬件SP + <span class="number">8</span></span><br><span class="line"><span class="attr">SP</span> = 硬件SP</span><br></pre></td></tr></table></figure>
+
+<h2 id="汇编简单分析"><a href="#汇编简单分析" class="headerlink" title="汇编简单分析"></a>汇编简单分析</h2><p>通过上面的代码会发现，手写汇编的代码和反汇编的代码有些不同。反汇编得到的代码，在函数前面会有一段<br><code> CALL    runtime.morestack_noctxt(SB)</code><br>其实这个是编译器自动插入的一段函数，这段指令会调用一次 <code>runtime.morestack_noctxt</code> 这个函数具体的作用是挺复杂的，主要有 检查是否需要扩张栈，go的栈空间是可以动态扩充的，所以在调用函数前会检查当前的栈空间是否需要扩充。还有一个功能就是检查当前协程需要抢占。go在1.14之前goroutine的抢占是协作式抢占模式，怎么判断一个协程是否需要抢占呢？后台协程会定时扫描当前运行中的协程，如果发现一个协程运行比较久，会将其标记为抢占状态。这个扫描的时间点就是函数调用期间完成的。</p>
+<h2 id="不同类型参数传递"><a href="#不同类型参数传递" class="headerlink" title="不同类型参数传递"></a>不同类型参数传递</h2><h2 id="传结构体"><a href="#传结构体" class="headerlink" title="传结构体"></a>传结构体</h2><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> One <span class="keyword">struct</span> &#123;</span><br><span class="line">    a <span class="type">int</span></span><br><span class="line">    b <span class="type">int</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    o := One &#123;</span><br><span class="line">        a:<span class="number">10</span>,</span><br><span class="line">        b<span class="number">.20</span>,</span><br><span class="line">    &#125;</span><br><span class="line">    f1(o)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//go:noinline</span></span><br><span class="line"> <span class="function"><span class="keyword">func</span> <span class="title">f1</span><span class="params">(o One)</span></span> <span class="type">int</span> &#123;</span><br><span class="line">     <span class="keyword">return</span> o.a + o.b</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>只贴 关键的汇编代码吧</p>
+<figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">    <span class="keyword">MOVQ</span>    <span class="number">$10</span>, (<span class="built_in">SP</span>)</span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="number">$0</span>, <span class="number">8</span>(<span class="built_in">SP</span>)</span><br><span class="line">        PCDATA  <span class="number">$1</span>, <span class="number">$0</span></span><br><span class="line">        <span class="keyword">CALL</span>    <span class="string">&quot;&quot;</span>.f1(SB)</span><br><span class="line"></span><br><span class="line">..........................</span><br><span class="line"></span><br><span class="line">        TEXT    <span class="string">&quot;&quot;</span>.f1(SB), <span class="built_in">NOSPLIT</span>|ABIInternal, <span class="number">$0</span>-<span class="number">24</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="string">&quot;&quot;</span>.o+<span class="number">16</span>(<span class="built_in">SP</span>), <span class="built_in">AX</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="string">&quot;&quot;</span>.o+<span class="number">8</span>(<span class="built_in">SP</span>), <span class="built_in">CX</span></span><br><span class="line">        ADDQ    <span class="built_in">CX</span>, <span class="built_in">AX</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="built_in">AX</span>, <span class="string">&quot;&quot;</span>.~<span class="built_in">r1</span>+<span class="number">24</span>(<span class="built_in">SP</span>)</span><br><span class="line">        <span class="keyword">RET</span></span><br></pre></td></tr></table></figure>
+<p>在传结构体的时候，只把结构体的内容传进去了。</p>
+<h3 id="传结构体指针"><a href="#传结构体指针" class="headerlink" title="传结构体指针"></a>传结构体指针</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> One <span class="keyword">struct</span> &#123;</span><br><span class="line">    a <span class="type">int</span></span><br><span class="line">    b <span class="type">int</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    o := &amp;One&#123;</span><br><span class="line">        a:<span class="number">10</span>,</span><br><span class="line">        b:<span class="number">20</span>,</span><br><span class="line">    &#125;</span><br><span class="line">    f1(o)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//go:noinline</span></span><br><span class="line"> <span class="function"><span class="keyword">func</span> <span class="title">f1</span><span class="params">(o *One)</span></span> <span class="type">int</span> &#123;</span><br><span class="line">     <span class="keyword">return</span> o.a + o.b</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>汇编</p>
+<figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">        LEAQ    <span class="string">&quot;&quot;</span>..autotmp_2+<span class="number">16</span>(<span class="built_in">SP</span>), <span class="built_in">AX</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="built_in">AX</span>, (<span class="built_in">SP</span>)</span><br><span class="line">        PCDATA  <span class="number">$1</span>, <span class="number">$0</span></span><br><span class="line">        <span class="keyword">CALL</span>    <span class="string">&quot;&quot;</span>.f1(SB)</span><br><span class="line"></span><br><span class="line">.......................</span><br><span class="line"></span><br><span class="line">        TEXT    <span class="string">&quot;&quot;</span>.f1(SB), <span class="built_in">NOSPLIT</span>|ABIInternal, <span class="number">$0</span>-<span class="number">16</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="string">&quot;&quot;</span>.o+<span class="number">8</span>(<span class="built_in">SP</span>), <span class="built_in">AX</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    (<span class="built_in">AX</span>), <span class="built_in">CX</span></span><br><span class="line">        ADDQ    <span class="number">8</span>(<span class="built_in">AX</span>), <span class="built_in">CX</span></span><br><span class="line">        <span class="keyword">MOVQ</span>    <span class="built_in">CX</span>, <span class="string">&quot;&quot;</span>.~<span class="built_in">r1</span>+<span class="number">16</span>(<span class="built_in">SP</span>)</span><br><span class="line">        <span class="keyword">RET</span></span><br></pre></td></tr></table></figure>
+<p>可以看到，传递指针的时候，只是把结构体第一个元素的地址传递进去了。</p>
+<p>如果是传一个空的结构体</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> One <span class="keyword">struct</span> &#123;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    o := One&#123;&#125;</span><br><span class="line">    f1(o,<span class="number">10</span>,<span class="number">20</span>)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//go:noinline</span></span><br><span class="line"> <span class="function"><span class="keyword">func</span> <span class="title">f1</span><span class="params">(o One, a,b <span class="type">int</span>)</span></span> <span class="type">int</span> &#123;</span><br><span class="line">     <span class="keyword">return</span> a + b</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+
+<p>汇编</p>
+<figure class="highlight x86asm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">TEXT    <span class="string">&quot;&quot;</span>.f1(SB), <span class="built_in">NOSPLIT</span>|ABIInternal, <span class="number">$0</span>-<span class="number">24</span></span><br><span class="line"><span class="meta">.loc</span> <span class="number">1</span> <span class="number">15</span> <span class="number">0</span></span><br><span class="line"><span class="keyword">MOVQ</span>    <span class="string">&quot;&quot;</span>.b+<span class="number">16</span>(<span class="built_in">SP</span>), <span class="built_in">AX</span></span><br><span class="line"><span class="keyword">MOVQ</span>    <span class="string">&quot;&quot;</span>.a+<span class="number">8</span>(<span class="built_in">SP</span>), <span class="built_in">CX</span></span><br><span class="line">ADDQ    <span class="built_in">CX</span>, <span class="built_in">AX</span></span><br><span class="line"><span class="keyword">MOVQ</span>    <span class="built_in">AX</span>, <span class="string">&quot;&quot;</span>.~<span class="built_in">r3</span>+<span class="number">24</span>(<span class="built_in">SP</span>)</span><br><span class="line"><span class="keyword">RET</span></span><br></pre></td></tr></table></figure>
+<p>可以看到，当传递一个空结构体时，相当于没有传递，因为空结构体的空间大小是0，所以编译器就给忽略了。</p>
+<h2 id="最后"><a href="#最后" class="headerlink" title="最后"></a>最后</h2><p>暂时就想到这么多，先写这些吧，后面想起别的再补充吧</p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>QX
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://lqxhub.github.io/posts/549df04c/" title="再探 go 汇编">https://lqxhub.github.io/posts/549df04c/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+  <li class="post-copyright-license">
+    <strong>暂时还懒得去弄评论区，有问题欢迎 <a href="mailto:lqxlucky@qq.com" title="lqxlucky@qq.com" rel="noopener" target="_blank">邮件</a> 交流</strong>
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/go/" rel="tag"><i class="fa fa-tag"></i> go</a>
+              <a href="/tags/%E6%B1%87%E7%BC%96/" rel="tag"><i class="fa fa-tag"></i> 汇编</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/c86abacd/" rel="prev" title="golang泛型初尝试">
+      <i class="fa fa-chevron-left"></i> golang泛型初尝试
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/posts/f8e89faa/" rel="next" title="链表排序">
+      链表排序 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <!--关于我页面去掉左边栏-->
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#go%E6%B1%87%E7%BC%96%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86"><span class="nav-number">1.</span> <span class="nav-text">go汇编基础知识</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%89%8B%E5%86%99%E6%B1%87%E7%BC%96"><span class="nav-number">2.</span> <span class="nav-text">手写汇编</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8%E7%A1%ACBP%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">2.1.</span> <span class="nav-text">使用硬BP寄存器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8%E4%BC%AASP%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">2.2.</span> <span class="nav-text">使用伪SP寄存器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8FP%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">2.3.</span> <span class="nav-text">使用FP寄存器</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B1%87%E7%BC%96%E7%AE%80%E5%8D%95%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">汇编简单分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%8D%E5%90%8C%E7%B1%BB%E5%9E%8B%E5%8F%82%E6%95%B0%E4%BC%A0%E9%80%92"><span class="nav-number">4.</span> <span class="nav-text">不同类型参数传递</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BC%A0%E7%BB%93%E6%9E%84%E4%BD%93"><span class="nav-number">5.</span> <span class="nav-text">传结构体</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BC%A0%E7%BB%93%E6%9E%84%E4%BD%93%E6%8C%87%E9%92%88"><span class="nav-number">5.1.</span> <span class="nav-text">传结构体指针</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9C%80%E5%90%8E"><span class="nav-number">6.</span> <span class="nav-text">最后</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="QX"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">QX</p>
+  <div class="site-description" itemprop="description">QX的笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">54</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">37</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/lqxhub" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;lqxhub" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:lqxlucky@qq.com" title="E-Mail → mailto:lqxlucky@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">QX</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    <span title="站点总字数">87k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    <span title="站点阅读时长">5:15</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="//cdn.jsdelivr.net/gh/theme-next/theme-next-canvas-nest@1/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

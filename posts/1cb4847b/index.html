@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="Ts78qICcAFtPJZg7DfwjJYFH2BsbYh7ICe1k6xMb-C8">
+  <meta name="msvalidate.01" content="C538647907B2EAEBE650AAC7463E551F">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/source-code-pro@2.38.0/source-code-pro.min.css/css?family=Lato:300,300italic,400,400italic,700,700italic|Source Code Pro:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/pace-js@1/themes/blue/pace-theme-minimal.min.css">
+  <script src="//cdn.jsdelivr.net/npm/pace-js@1/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"lqxhub.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="redis在 6.0 版本加入了ACL支持，虽然已经发布很久了，但是这个命令属于不太常用的命令，导致很多人对ACL还不太了解。比较好的文档就是redis ACL的官方文档 ，其他网上搜索到的相关知识大多数不全面，尤其中文文档缺失比较多。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="redis ACL使用手册">
+<meta property="og:url" content="https://lqxhub.github.io/posts/1cb4847b/index.html">
+<meta property="og:site_name" content="QX 的笔记">
+<meta property="og:description" content="redis在 6.0 版本加入了ACL支持，虽然已经发布很久了，但是这个命令属于不太常用的命令，导致很多人对ACL还不太了解。比较好的文档就是redis ACL的官方文档 ，其他网上搜索到的相关知识大多数不全面，尤其中文文档缺失比较多。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-03-10T10:32:52.000Z">
+<meta property="article:modified_time" content="2024-07-10T06:06:38.906Z">
+<meta property="article:author" content="QX">
+<meta property="article:tag" content="redis">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://lqxhub.github.io/posts/1cb4847b/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>redis ACL使用手册 | QX 的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="QX 的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">QX 的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">37</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">54</span></a>
+
+  </li>
+        <li class="menu-item menu-item-友链">
+
+    <a href="/links/" rel="section"><i class="fa fa-link fa-fw"></i>友链</a>
+
+  </li>
+        <li class="menu-item menu-item-收藏">
+
+    <a href="/collect/" rel="section"><i class="fa fa-archive fa-fw"></i>收藏</a>
+
+  </li>
+        <li class="menu-item menu-item-工具">
+
+    <a href="/tool/" rel="section"><i class="fa fa-heartbeat fa-fw"></i>工具</a>
+
+  </li>
+        <li class="menu-item menu-item-rss">
+
+    <a href="/atom.xml" rel="section"><i class="fa fa-rss fa-fw"></i>RSS</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/lqxhub" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://lqxhub.github.io/posts/1cb4847b/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="QX">
+      <meta itemprop="description" content="QX的笔记">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="QX 的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          redis ACL使用手册
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-03-10 18:32:52" itemprop="dateCreated datePublished" datetime="2024-03-10T18:32:52+08:00">2024-03-10</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-07-10 14:06:38" itemprop="dateModified" datetime="2024-07-10T14:06:38+08:00">2024-07-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>3k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>11 分钟</span>
+            </span>
+          
+          
+          
+          
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>redis在 6.0 版本加入了ACL支持，虽然已经发布很久了，但是这个命令属于不太常用的命令，导致很多人对ACL还不太了解。比较好的文档就是redis <a target="_blank" rel="noopener" href="https://redis.io/docs/management/security/acl/">ACL的官方文档</a> ，其他网上搜索到的相关知识大多数不全面，尤其中文文档缺失比较多。</p>
+<span id="more"></span>
+
+<p>我之前写过一篇 <a href="https://lqxhub.github.io/posts/eeb1e692/">redis ACL源码分析的文章</a>。但是这篇文章偏向源码学习，对ACL的使用基本没有介绍。所以这次就来写一下 ACL 的使用。我作为 pika ACL 功能的贡献者，<a target="_blank" rel="noopener" href="https://github.com/OpenAtomFoundation/pika/pull/2013">pika ACL PR</a>，自认为对ACL有一些了解，如果文中有错误，还请不吝赐教。</p>
+<p>我会从 <strong>### ACL功能的介绍</strong> 和 <strong>ACL命令的使用</strong> 两方面来写</p>
+<h3 id="ACL功能"><a href="#ACL功能" class="headerlink" title="ACL功能"></a>ACL功能</h3><p>ACL简单来说，就是给redis加了用户的概念。以前的redis中，没有用户这个概念，只有一个密码。当一个连接完成认证后，可以执行所有命令。这样是有风险的，如果一个普通的用户，执行了 <code>flushall</code> 这样的命令，整个redis的数据都会被删除。当加入了用户这个概念以后，redis可以通过给不同的用户划分不同的权限，比如普通用户只给数据的读写权限，不能对redis服务做任何管理。这样就能保证redis服务的安全和稳定。</p>
+<p>就像MySQL一样，有一个默认的 <strong>root</strong> 用户，这个用户拥有最高的权限。但是在实际使用中，不会在业务处理的连接中使用root用户，而是创建一个普通的用户。限制这个用户的权限，只能操作自己业务的库。当redis有了ACL功能后，也可以实现类似的功能了</p>
+<h4 id="使用ACL"><a href="#使用ACL" class="headerlink" title="使用ACL"></a>使用ACL</h4><p>在redis使用ACL不需要特殊的配置，只要redis版本支持这个功能即可。redis在启动的时候，会初始化一个默认用户 <strong>default</strong> 这个用户就相当于MySQL中的 <strong>root</strong> 用户。默认拥有所有权限。</p>
+<p>操作和修改redis的ACL，可以使用redis中ACL的相关命令（后面会逐个介绍），可以在配置文件中预先设定，启动redis的时候会自动加载预设的ACL规则。</p>
+<p>可以在redis的配置文件（默认是<strong>redis.conf</strong>）中进行配置。</p>
+<p>例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">user default on nopass ~* &amp;* +@ALL</span><br></pre></td></tr></table></figure>
+
+<p>这就是一条ACL的配置。</p>
+<p>除了在 redis.conf这配置以外，还可以在 redis.conf 中指定一个文件，然后在指定的文件中配置ACL规则。<br>ACL文件在redis.conf配置如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">aclfile /etc/redis/users.acl</span><br></pre></td></tr></table></figure>
+
+<p>除了这两个外，ACL几个个配置</p>
+<p>ACL log记录的条数，log的作用就是记录用户越权行为。</p>
+<p>配置：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">acllog-max-len 128</span><br></pre></td></tr></table></figure>
+
+<p>ACL 中channel 的默认状态。可以配置 <code>allchannels</code> 或 <code>resetchannels</code>。</p>
+<ul>
+<li><code>allchannels</code>： 可以访问所有Pub&#x2F;Sub频道的权限</li>
+<li><code>resetchannels</code>： 撤销对所有Pub&#x2F;Sub频道的访问</li>
+</ul>
+<p>配置：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">acl-pubsub-default resetchannels</span><br></pre></td></tr></table></figure>
+
+<h4 id="ACL配置语法"><a href="#ACL配置语法" class="headerlink" title="ACL配置语法"></a>ACL配置语法</h4><p>首先，ACL可以对 <strong>命令</strong>，<strong>key的名字</strong>，<strong>channel</strong> 做限制，多个规则之间用空格分割。</p>
+<p><code>user1 on &gt;123 ~* &amp;* +@ALL</code> 这条配置中。</p>
+<ul>
+<li><code>user1</code>：用户名</li>
+<li><code>on</code>：用户启用，如果设置为 <code>off</code> 那么用户不能使用</li>
+<li><code>&gt;123</code>： 用户密码</li>
+<li><code>~*</code>：不做任何 key名字的限制</li>
+<li><code>&amp;*</code>：不做 pub&#x2F;sub 的限制</li>
+<li><code>+@ALL</code>：允许执行所有命令</li>
+</ul>
+<h5 id="密码"><a href="#密码" class="headerlink" title="密码"></a>密码</h5><p>redis ACL中，一个用户可以有多个密码，只要有一个密码认证成功就可以。也可以使用 <code>nopass</code> 这个关键词来表示该用户没有密码。</p>
+<p>在设置密码的时候，使用 <code>&gt;password</code> 来设置密码，使用<code>&lt;password</code> 来删除对应的密码。</p>
+<p>还可以使用 <code>#5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8</code> 来设置密码，<strong>5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8</strong> 是 <strong>password</strong> 的 <strong>sha1</strong> 值。为了密码安全，redis内部存储密码使用的是密码的 sha1，这样在配置文件和转储ACL规则的时候，可以保证密码的安全。</p>
+<p>同样的，可以使用 <code>!5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8</code> 来删除对应的密码。</p>
+<h5 id="key名限制"><a href="#key名限制" class="headerlink" title="key名限制"></a>key名限制</h5><p>redis中每个key都有一个名字，使用 <code>~</code> 来做key名字限制，支持 <code>*</code> 通配符，而且支持key的只读 <code>R</code> 和 写 <code>W</code> 区分。</p>
+<p>比如 对 <code>app1</code> 这个key只读 <code>%R~app1</code>。对所有 <strong>app2</strong> 开头的key都有权限 <code>~app2*</code></p>
+<h5 id="pub-sub限制"><a href="#pub-sub限制" class="headerlink" title="pub&#x2F;sub限制"></a>pub&#x2F;sub限制</h5><p>pub&#x2F;sub限制和key名限制类似，要使用pub&#x2F;sub的前提是可以使用 pub&#x2F;sub相关的命令，这部分在命令限制中配置，这里是限制 channel 的名字。</p>
+<p>和key限制不同的是，channel 使用 <code>&amp;</code> 符号</p>
+<p>这里有两个关键词</p>
+<ul>
+<li><code>allchannels</code>： 可以访问所有Pub&#x2F;Sub频道的权限</li>
+<li><code>resetchannels</code>： 撤销对所有Pub&#x2F;Sub频道的访问</li>
+</ul>
+<h5 id="命令限制"><a href="#命令限制" class="headerlink" title="命令限制"></a>命令限制</h5><p>命令最好理解了，就是限制当前用户可以执行哪些命令，不能执行哪些命令。<br>在ACL中使用 <code>+</code> 来赋予命令的权限，用 <code>-</code> 来撤销命令的权限。比如 <code>+get -set</code> 这就表示赋予 <code>get</code> 命令，撤销 <code>set</code>命令。</p>
+<p>除了直接指定具体的命令外，还可以对一类命令做限制。比如 <code>+@hash -@zset</code>，这表示可以执行所有的 <strong>hash</strong> 类的命令，不能执行所有的 <strong>zset</strong> 类的命令。</p>
+<p>redis ACL 还可以限制子命令。比如 <code>CONFIG SET acllog-max-len 128</code> 中，<code>SET</code> 就是 <code>CONFIG</code> 命令的子命令。如果想要限制用户不能修改配置，那ACL可以这样配置 <code>+config -config|set</code>。此时用户可以执行  <code>config set</code> 以外的所有 <code>config</code> 命令。</p>
+<p>还有一种用法，<strong>允许阻塞命令的第一个参数</strong>，不过这个功能自Redis 7.0起已弃用，将来可能会被删除。所以不建议使用了。</p>
+<p>用redis官方文档的例子来说</p>
+<p>有时，排除或包含命令或子命令作为一个整体的能力是不够的。许多部署可能不愿意为任何DB提供执行SELECT的能力，但可能仍然希望能够运行SELECT 0。</p>
+<p>此时的配置 <code>ACL SETUSER myuser -select +select|0</code>。这样，该用户只能执行 <code>select 0</code> 这一个 <code>select</code> 命令。如果想 <code>select 2</code> 等等进入别的库是不允许的。</p>
+<p>我个人感觉，要淘汰这个功能的原因，是应用面太少了，而且像上面的这个例子中，并没有完全限制了对库的使用权限。如果先在别的用户下，选择了 <strong>1</strong> 这个库，然后再 <code>auth myuser</code> 这个用户，虽然这个用户限制了，只能 <strong>select 0</strong>，但是此时依然可以访问 <strong>1</strong> 这个库。</p>
+<p>redis命令的分类：</p>
+<ul>
+<li><strong>admin</strong> 管理redis服务相关的命令 包含 <code>REPLICAOF</code> <code>CONFIG</code> <code>SAVE</code> <code>MONITOR</code> <code>ACL</code> <code>SHUTDOWN</code>等等</li>
+<li><strong>bitmap</strong> bitmap这个数据类型相关的命令</li>
+<li><strong>blocking</strong> 可能会阻塞连接，直到被另一个命令释放</li>
+<li><strong>connection</strong> 影响连接或其他连接的命令。包含 <code>AUTH</code> <code>SELECT</code> <code>COMMAND</code> <code>CLIENT</code> <code>ECHO</code> <code>PING</code>等等</li>
+<li><strong>dangerous</strong> 有潜在危险的命令(由于各种原因，应该仔细考虑每个命令)。包含 <code>FLUSHALL</code> <code>MIGRATE</code> <code>RESTORE</code> <code>SORT</code> <code>KEYS</code> <code>CLIENT</code> <code>INFO</code> <code>CONFIG</code> <code>SAVE</code> <code>REPLICAOF</code>等等</li>
+<li><strong>geo</strong> geo这个数据类型相关的命令</li>
+<li><strong>hash</strong> hash这个数据类型相关的命令</li>
+<li><strong>hyperloglog</strong> hyperloglog 这个数据类型相关的命令</li>
+<li><strong>fast</strong> 快 O(1) 的命令，可以循环参数的个数，但不能循环键中的元素个数。</li>
+<li><strong>keyspace</strong> 以与类型无关的方式从键、数据库或它们的元数据写入或读取。包含 <code>DEL</code> <code>RESTORE</code> <code>DUMP</code> <code>RENAME</code> <code>EXISTS</code> <code>DBSIZE</code> <code>KEYS</code> <code>EXPIRE</code> <code>TTL</code> <code>FLUSHALL</code> 可能修改键空间、键或元数据的命令也将具有 <code>write</code> 类别。仅读取键空间、键或元数据的命令将具有 <code>read</code> 类别。</li>
+<li><strong>list</strong> list这个数据类型相关的命令</li>
+<li><strong>pubsub</strong> PubSub 订阅发布相关的命令</li>
+<li><strong>read</strong> 从键(值或元数据)读取。不与键交互的命令既没有 <code>read</code> 也没有 <code>write</code></li>
+<li><strong>scripting</strong> lua脚本执行相关的命令</li>
+<li><strong>set</strong> set 这个数据结构相关的命令</li>
+<li><strong>sortedset</strong> zset数据结构相关的命令</li>
+<li><strong>slow</strong> 慢命令，非 <code>fast</code>的命令</li>
+<li><strong>stream</strong> stream 这个数据类型相关的命令</li>
+<li><strong>string</strong> string 这个数据类型相关的命令</li>
+<li><strong>transaction</strong> <code>WATCH</code> <code>MULTI</code> <code>EXEC</code> 这几个和事务相关的命令</li>
+<li><strong>write</strong> 写入键(值或元数据)的命令</li>
+</ul>
+<h3 id="ACL相关命令"><a href="#ACL相关命令" class="headerlink" title="ACL相关命令"></a>ACL相关命令</h3><p>使用 <code>ACL HELP</code> 命令可以看到ACL所有的命令</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"> 1) ACL &lt;subcommand&gt; [&lt;arg&gt; [value] [opt] ...]. Subcommands are:</span><br><span class="line"> 2) CAT [&lt;category&gt;]</span><br><span class="line"> 3)     List all commands that belong to &lt;category&gt;, or all command categories</span><br><span class="line"> 4)     when no category is specified.</span><br><span class="line"> 5) DELUSER &lt;username&gt; [&lt;username&gt; ...]</span><br><span class="line"> 6)     Delete a list of users.</span><br><span class="line"> 7) DRYRUN &lt;username&gt; &lt;command&gt; [&lt;arg&gt; ...]</span><br><span class="line"> 8)     Returns whether the user can execute the given command without executing the command.</span><br><span class="line"> 9) GETUSER &lt;username&gt;</span><br><span class="line">10)     Get the user&#x27;s details.</span><br><span class="line">11) GENPASS [&lt;bits&gt;]</span><br><span class="line">12)     Generate a secure 256-bit user password. The optional `bits` argument can</span><br><span class="line">13)     be used to specify a different size.</span><br><span class="line">14) LIST</span><br><span class="line">15)     Show users details in config file format.</span><br><span class="line">16) LOAD</span><br><span class="line">17)     Reload users from the ACL file.</span><br><span class="line">18) LOG [&lt;count&gt; | RESET]</span><br><span class="line">19)     Show the ACL log entries.</span><br><span class="line">20) SAVE</span><br><span class="line">21)     Save the current config to the ACL file.</span><br><span class="line">22) SETUSER &lt;username&gt; &lt;attribute&gt; [&lt;attribute&gt; ...]</span><br><span class="line">23)     Create or modify a user with the specified attributes.</span><br><span class="line">24) USERS</span><br><span class="line">25)     List all the registered usernames.</span><br><span class="line">26) WHOAMI</span><br><span class="line">27)     Return the current connection username.</span><br><span class="line">28) HELP</span><br><span class="line">29)     Prints this help.</span><br></pre></td></tr></table></figure>
+
+<p>那就一个个来吧</p>
+<h5 id="ACL-CAT"><a href="#ACL-CAT" class="headerlink" title="ACL CAT"></a>ACL CAT</h5><p>列出所有的命令分类，如果制定了分类名，就列出当前分类中所有的命令</p>
+<p>使用：<code>ACL CAT</code></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"> 1) &quot;keyspace&quot;</span><br><span class="line"> 2) &quot;read&quot;</span><br><span class="line"> 3) &quot;write&quot;</span><br><span class="line"> 4) &quot;set&quot;</span><br><span class="line"> 5) &quot;sortedset&quot;</span><br><span class="line"> 6) &quot;list&quot;</span><br><span class="line"> 7) &quot;hash&quot;</span><br><span class="line"> 8) &quot;string&quot;</span><br><span class="line"> 9) &quot;bitmap&quot;</span><br><span class="line">10) &quot;hyperloglog&quot;</span><br><span class="line">11) &quot;geo&quot;</span><br><span class="line">12) &quot;stream&quot;</span><br><span class="line">13) &quot;pubsub&quot;</span><br><span class="line">14) &quot;admin&quot;</span><br><span class="line">15) &quot;fast&quot;</span><br><span class="line">16) &quot;slow&quot;</span><br><span class="line">17) &quot;blocking&quot;</span><br><span class="line">18) &quot;dangerous&quot;</span><br><span class="line">19) &quot;connection&quot;</span><br><span class="line">20) &quot;transaction&quot;</span><br><span class="line">21) &quot;scripting&quot;</span><br></pre></td></tr></table></figure>
+
+<p>使用：<code>ACL CAT HASH</code>，列出 <strong>hash</strong> 这个分类下所有的命令。</p>
+<h5 id="ACL-DELUSER"><a href="#ACL-DELUSER" class="headerlink" title="ACL DELUSER"></a>ACL DELUSER</h5><p>这个没什么好说的，就是删除指定的用户。例如：<code>ACL DELUSER user1 user2</code></p>
+<h5 id="ACL-DRYRUN"><a href="#ACL-DRYRUN" class="headerlink" title="ACL DRYRUN"></a>ACL DRYRUN</h5><p>用来测试指定用户是否可以执行特定的命令。</p>
+<p>比如测试 <strong>user1</strong> 是否可以执行 <code>hset hkey field1 1111</code> 命令如下</p>
+<p><code>ACL DRYRUN user1 hset hkey field1 1111</code> 如果有权限执行，会返回 <code>OK</code>，否则会提示具体的错误。</p>
+<h5 id="ACL-GETUSER"><a href="#ACL-GETUSER" class="headerlink" title="ACL GETUSER"></a>ACL GETUSER</h5><p>就如字面意思，获取指定用户的详细信息，例：<code>ACL GETUSER user1</code></p>
+<h5 id="ACL-GENPASS"><a href="#ACL-GENPASS" class="headerlink" title="ACL GENPASS"></a>ACL GENPASS</h5><p>生成一个随机密码，默认长度是 256 位的密码，也可以指定长度。</p>
+<h5 id="ACL-LIST"><a href="#ACL-LIST" class="headerlink" title="ACL LIST"></a>ACL LIST</h5><p>使用 ACL 配置文件中的格式，列出当前系统中所有的用户的详细信息</p>
+<h5 id="ACL-LOAD"><a href="#ACL-LOAD" class="headerlink" title="ACL LOAD"></a>ACL LOAD</h5><p>从配置中重新加载ACL的配置，如果redis的配置文件中，没有配置 <code>aclfile</code> 的文件路径，那么这个命令会报错。</p>
+<h5 id="ACL-LOG"><a href="#ACL-LOG" class="headerlink" title="ACL LOG"></a>ACL LOG</h5><p>查询所有没有通过校验的行为，比如 <strong>user1</strong> 没有 <strong>hash</strong> 类型数据操作的权限，在使用 <strong>hash</strong> 类型的命令后，会记录一条log</p>
+<p>log记录的最大值，从 配置文件中的 <code>acllog-max-len</code> 中读取。</p>
+<p>这个命令可以通过参数，来指定一次获取的log数量，例：<code>ACL LOG 10</code> 只获取10条</p>
+<p>还可以重置所有log，例：<code>ACL LOG reset</code></p>
+<h5 id="ACL-SAVE"><a href="#ACL-SAVE" class="headerlink" title="ACL SAVE"></a>ACL SAVE</h5><p>和 <code>ACL LOAD</code> 命令相反，这个是把当前的ACL规则保存到文件中。这个命令也需要在配置了 <strong>aclfile</strong> 后才能执行，否则也会报错。</p>
+<h5 id="ACL-SETUSER"><a href="#ACL-SETUSER" class="headerlink" title="ACL SETUSER"></a>ACL SETUSER</h5><p>这个是ACL中最常用的命令了，用来创建和设置ACL用户属性。创建和修改用户，使用 ACL 语法，同配置中的语法是一致的。</p>
+<p>例：<code>ACL SETUSER user1 on &gt;123 ~app1* +@all</code> 会修改 <strong>user1</strong> 这个用户的属性，如果之前没有这个用户，那么会创建这个用户，并设置属性。</p>
+<p>ACL还支持子属性，例：<code>ACL SETUSER user1 on &gt;123 ~app1* +@all (+@read ~app2)</code> 在这个规则下，<strong>user1</strong> 用户对 <strong>app1</strong> 前缀的key拥有读写权限，对 <strong>app2</strong> 前缀的key只有读的权限。</p>
+<h5 id="ACL-USERS"><a href="#ACL-USERS" class="headerlink" title="ACL USERS"></a>ACL USERS</h5><p>只列出当前系统所有的用户名，相当于是 <code>ACL LIST</code> 命令的简化版</p>
+<h5 id="ACL-WHOAMI"><a href="#ACL-WHOAMI" class="headerlink" title="ACL WHOAMI"></a>ACL WHOAMI</h5><p>获取当前用户的名字，类似Linux系统中的 <strong>whoami</strong> 命令。</p>
+<p>到这整个ACL命令使用差不多就介绍完了。整个ACL就是命令多点，使用起来也没有那么复杂吗。</p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>QX
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://lqxhub.github.io/posts/1cb4847b/" title="redis ACL使用手册">https://lqxhub.github.io/posts/1cb4847b/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+  <li class="post-copyright-license">
+    <strong>暂时还懒得去弄评论区，有问题欢迎 <a href="mailto:lqxlucky@qq.com" title="lqxlucky@qq.com" rel="noopener" target="_blank">邮件</a> 交流</strong>
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/redis/" rel="tag"><i class="fa fa-tag"></i> redis</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/bce71a0/" rel="prev" title="redis源码学习|网络">
+      <i class="fa fa-chevron-left"></i> redis源码学习|网络
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <!--关于我页面去掉左边栏-->
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#ACL%E5%8A%9F%E8%83%BD"><span class="nav-number">1.</span> <span class="nav-text">ACL功能</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8ACL"><span class="nav-number">1.1.</span> <span class="nav-text">使用ACL</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#ACL%E9%85%8D%E7%BD%AE%E8%AF%AD%E6%B3%95"><span class="nav-number">1.2.</span> <span class="nav-text">ACL配置语法</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E5%AF%86%E7%A0%81"><span class="nav-number">1.2.1.</span> <span class="nav-text">密码</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#key%E5%90%8D%E9%99%90%E5%88%B6"><span class="nav-number">1.2.2.</span> <span class="nav-text">key名限制</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#pub-sub%E9%99%90%E5%88%B6"><span class="nav-number">1.2.3.</span> <span class="nav-text">pub&#x2F;sub限制</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E5%91%BD%E4%BB%A4%E9%99%90%E5%88%B6"><span class="nav-number">1.2.4.</span> <span class="nav-text">命令限制</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ACL%E7%9B%B8%E5%85%B3%E5%91%BD%E4%BB%A4"><span class="nav-number">2.</span> <span class="nav-text">ACL相关命令</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-CAT"><span class="nav-number">2.0.1.</span> <span class="nav-text">ACL CAT</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-DELUSER"><span class="nav-number">2.0.2.</span> <span class="nav-text">ACL DELUSER</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-DRYRUN"><span class="nav-number">2.0.3.</span> <span class="nav-text">ACL DRYRUN</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-GETUSER"><span class="nav-number">2.0.4.</span> <span class="nav-text">ACL GETUSER</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-GENPASS"><span class="nav-number">2.0.5.</span> <span class="nav-text">ACL GENPASS</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-LIST"><span class="nav-number">2.0.6.</span> <span class="nav-text">ACL LIST</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-LOAD"><span class="nav-number">2.0.7.</span> <span class="nav-text">ACL LOAD</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-LOG"><span class="nav-number">2.0.8.</span> <span class="nav-text">ACL LOG</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-SAVE"><span class="nav-number">2.0.9.</span> <span class="nav-text">ACL SAVE</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-SETUSER"><span class="nav-number">2.0.10.</span> <span class="nav-text">ACL SETUSER</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-USERS"><span class="nav-number">2.0.11.</span> <span class="nav-text">ACL USERS</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#ACL-WHOAMI"><span class="nav-number">2.0.12.</span> <span class="nav-text">ACL WHOAMI</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="QX"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">QX</p>
+  <div class="site-description" itemprop="description">QX的笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">54</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">37</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/lqxhub" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;lqxhub" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:lqxlucky@qq.com" title="E-Mail → mailto:lqxlucky@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">QX</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    <span title="站点总字数">87k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    <span title="站点阅读时长">5:15</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="//cdn.jsdelivr.net/gh/theme-next/theme-next-canvas-nest@1/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

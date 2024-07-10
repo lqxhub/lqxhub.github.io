@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="Ts78qICcAFtPJZg7DfwjJYFH2BsbYh7ICe1k6xMb-C8">
+  <meta name="msvalidate.01" content="C538647907B2EAEBE650AAC7463E551F">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/source-code-pro@2.38.0/source-code-pro.min.css/css?family=Lato:300,300italic,400,400italic,700,700italic|Source Code Pro:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/pace-js@1/themes/blue/pace-theme-minimal.min.css">
+  <script src="//cdn.jsdelivr.net/npm/pace-js@1/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"lqxhub.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="最近在看研究公司业务的存储架构，现有的存储用redis 和 leveldb 通过自己写的中间件做数据落地。这样写业务和数据恢复有点麻烦，想着优化一下，就去研究redis和leveldb的源码。发现了跳表这个数据结构很有意思，性能不错，实现也相对简单，就想着自己用go实现一个跳表，在通过这个跳表实现一个类似redis 的 zset 功能。我会尽可能 详细的去介绍所有实现细节。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="4000字详解跳表实现(挑战全网中文最详细)">
+<meta property="og:url" content="https://lqxhub.github.io/posts/4f40161/index.html">
+<meta property="og:site_name" content="QX 的笔记">
+<meta property="og:description" content="最近在看研究公司业务的存储架构，现有的存储用redis 和 leveldb 通过自己写的中间件做数据落地。这样写业务和数据恢复有点麻烦，想着优化一下，就去研究redis和leveldb的源码。发现了跳表这个数据结构很有意思，性能不错，实现也相对简单，就想着自己用go实现一个跳表，在通过这个跳表实现一个类似redis 的 zset 功能。我会尽可能 详细的去介绍所有实现细节。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lqxhub.github.io/posts/4f40161/3622259-8a5c496ba69e55bb.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/4f40161/3622259-7e8eb6e18ce9f5af.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/4f40161/3622259-8d7d615cb137328e.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/4f40161/3622259-7e8eb6e18ce9f5af.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/4f40161/3622259-4a320f4d9ffe2c71.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/4f40161/3622259-796f3d16ab6ea01a.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/4f40161/3622259-f323e13d9f1fe929.webp">
+<meta property="article:published_time" content="2021-10-17T10:30:19.000Z">
+<meta property="article:modified_time" content="2024-07-10T06:06:38.898Z">
+<meta property="article:author" content="QX">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="算法">
+<meta property="article:tag" content="数据结构">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lqxhub.github.io/posts/4f40161/3622259-8a5c496ba69e55bb.webp">
+
+<link rel="canonical" href="https://lqxhub.github.io/posts/4f40161/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>4000字详解跳表实现(挑战全网中文最详细) | QX 的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="QX 的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">QX 的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">37</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">54</span></a>
+
+  </li>
+        <li class="menu-item menu-item-友链">
+
+    <a href="/links/" rel="section"><i class="fa fa-link fa-fw"></i>友链</a>
+
+  </li>
+        <li class="menu-item menu-item-收藏">
+
+    <a href="/collect/" rel="section"><i class="fa fa-archive fa-fw"></i>收藏</a>
+
+  </li>
+        <li class="menu-item menu-item-工具">
+
+    <a href="/tool/" rel="section"><i class="fa fa-heartbeat fa-fw"></i>工具</a>
+
+  </li>
+        <li class="menu-item menu-item-rss">
+
+    <a href="/atom.xml" rel="section"><i class="fa fa-rss fa-fw"></i>RSS</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/lqxhub" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://lqxhub.github.io/posts/4f40161/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="QX">
+      <meta itemprop="description" content="QX的笔记">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="QX 的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          4000字详解跳表实现(挑战全网中文最详细)
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-10-17 18:30:19" itemprop="dateCreated datePublished" datetime="2021-10-17T18:30:19+08:00">2021-10-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-07-10 14:06:38" itemprop="dateModified" datetime="2024-07-10T14:06:38+08:00">2024-07-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%AE%97%E6%B3%95/" itemprop="url" rel="index"><span itemprop="name">算法</span></a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.1k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>19 分钟</span>
+            </span>
+          
+          
+          
+          
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>最近在看研究公司业务的存储架构，现有的存储用redis 和 leveldb 通过自己写的中间件做数据落地。这样写业务和数据恢复有点麻烦，想着优化一下，就去研究redis和leveldb的源码。发现了跳表这个数据结构很有意思，性能不错，实现也相对简单，就想着自己用go实现一个跳表，在通过这个跳表实现一个类似redis 的 zset 功能。我会尽可能 详细的去介绍所有实现细节。</p>
+<span id="more"></span>
+
+<p>看着篇文章，首先熟悉链表的相关知识，比如链表的插入和删除。最好会一点go，不会关系也不大，go的语法很简单，和C有一点像，有计算机基础的基本很快就能看懂go的语法。</p>
+<p><strong>下面分这个几点来介绍</strong></p>
+<ul>
+<li>跳表是什么</li>
+<li>跳表的优缺点</li>
+<li>跳表的结构</li>
+<li>怎么实现一个跳表(增删改查)</li>
+</ul>
+<h2 id="跳表是什么"><a href="#跳表是什么" class="headerlink" title="跳表是什么"></a>跳表是什么</h2><p>跳表是一个可以快速查找的有序链表, 搜索、插入、删除操作的时间均为O(logn), 关于跳表的详细定义 <a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/%E8%B7%B3%E8%B7%83%E5%88%97%E8%A1%A8">维基百科</a>  <a target="_blank" rel="noopener" href="https://baike.baidu.com/item/%E8%B7%B3%E8%A1%A8/22819833">百度百科</a>   跳表虽然是非常有用的数据结构，但是很多书里都没有写这个，我在大学的数据结构课本里也没有写跳表，就导致很多人对跳表不熟悉。</p>
+<p>跳表本质上是一个链表，因为链表的随机查找性能太差，是O(N)，查找元素只能从头结点或者尾结点遍历。</p>
+<p><img src="/posts/4f40161/3622259-8a5c496ba69e55bb.webp" alt="单向链表"></p>
+<p>如图中要查找结点6，只能从结点1 一点点往右遍历。</p>
+<p>能不能在链表中使用二分查找呢，当然是可以的，就是给链表加索引，也就是跳表了</p>
+<p><img src="/posts/4f40161/3622259-7e8eb6e18ce9f5af.webp" alt="跳表"></p>
+<p>上图就是一个简单的跳表了（图中的各种颜色和数字后面会有详细的介绍）。从图中可以看出，跳表是在双向链表的基础上，加了多层索引实现的。</p>
+<h2 id="跳表的优缺点"><a href="#跳表的优缺点" class="headerlink" title="跳表的优缺点"></a>跳表的优缺点</h2><p>作为快速查找的数据结构，跳表常用来和红黑树 做比较，列一下跳表和红黑树的优缺点吧</p>
+<ul>
+<li>跳表的优点：</li>
+</ul>
+<ol>
+<li>跳表实现起来相对简单。红黑树的定义和左旋右旋操作，确实复杂，我资质愚钝，理解起来还是有单困难。后面我会解释跳表实现简单的原因的.</li>
+<li>区间查找方便。在跳表中找到一个节点后，就可以通过前后指针找到相邻的元素。红黑树则需要通过父节点，子节点去寻找，相对麻烦。</li>
+</ol>
+<ul>
+<li>红黑树的优点</li>
+</ul>
+<ol>
+<li>内存占用小，只需要3个指针就可以（左子树，右子树，父节点） 而跳表有一个向后的指针，每一层都有一个向前的指针</li>
+<li>红黑树的查找稳定，红黑树有着严格的定义，每次插入和删除数据都会通过左旋右旋来平衡树的结构，通过红黑树查找有着稳定的查找时间O(logn) ，为啥跳表是不稳定的，看到跳表是怎样确定层数的就明白了</li>
+</ol>
+<ul>
+<li>跳表和普通链表相比，除了费内存，好像没啥缺点了</li>
+</ul>
+<h2 id="跳表的结构和实现"><a href="#跳表的结构和实现" class="headerlink" title="跳表的结构和实现"></a>跳表的结构和实现</h2><p>跳表的实现思路借鉴了redis的zset实现思想具体代码在<a target="_blank" rel="noopener" href="https://github.com/redis/redis/blob/unstable/src/t_zset.c">github</a><br>跳表简单说可以有两种实现思路，一种是跳表内不能有重复的元素，另一种是跳表内允许有重复元素。redis中的跳表是允许有重复元素的，我这次实现的也是可以有重复元素的。</p>
+<h3 id="跳表node-的结构"><a href="#跳表node-的结构" class="headerlink" title="跳表node 的结构"></a>跳表node 的结构</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> SkipListLevel <span class="keyword">struct</span> &#123;</span><br><span class="line">    <span class="comment">//指向下一个结点</span></span><br><span class="line">    forward *SkipListNode</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 到下一个node的距离;</span></span><br><span class="line"><span class="comment">     * 思考,为啥是记录到下一个node, 而不是记录上一个node到这的距离</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    span <span class="type">int64</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> SkipListNode <span class="keyword">struct</span> &#123;</span><br><span class="line">    <span class="comment">//指向上一个结点</span></span><br><span class="line">    backward *SkipListNode</span><br><span class="line">    <span class="comment">//索引用的层</span></span><br><span class="line">    level []SkipListLevel</span><br><span class="line">    <span class="comment">//存储的值</span></span><br><span class="line">    value ISkipListNode</span><br><span class="line">    <span class="comment">//排名用的分数</span></span><br><span class="line">    score <span class="type">float64</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="/posts/4f40161/3622259-8d7d615cb137328e.webp" alt="单个node"></p>
+<p>在一个node中，黑色的<strong>1</strong>是 <strong>value</strong>， 黄色的方块是<strong>level</strong>，白色的数字是<strong>span</strong>，<strong>backward</strong> 和 <strong>forward</strong> 这两个指针在图中没有体现出来，只会有一个backward （向后的指针），level数组长度是多少，就会有多少个forward（向前的）指针。<br>span值是到下一个结点的跨度是多少，相邻的结点数值是1。这个值的作用是用来计算这个node在跳表中的排名。一开始我对span的值 不理解，以为是上个结点到这里的距离，直到在写插入和搜索结点的时候，才意识到这个是到下个结点的跨度。</p>
+<h3 id="跳表结构"><a href="#跳表结构" class="headerlink" title="跳表结构"></a>跳表结构</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> SkipList <span class="keyword">struct</span> &#123;</span><br><span class="line">    <span class="comment">//头结点和尾结点</span></span><br><span class="line">    <span class="comment">//重点,头结点是一个真实存在的,尾结点只是一个指针</span></span><br><span class="line">    head, tail *SkipListNode</span><br><span class="line"></span><br><span class="line">    size <span class="type">int64</span> <span class="comment">//node总数</span></span><br><span class="line"></span><br><span class="line">    level <span class="type">int</span> <span class="comment">//当前跳表的最高level</span></span><br><span class="line"></span><br><span class="line">    maxLevel <span class="type">int</span> <span class="comment">//当前最大层数</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>head</strong> 和 <strong>tail</strong> 是两个指针指向跳表的头和尾，<strong>size</strong> 是整个跳表中node的的数量， <strong>level</strong> 是跳表中，当前的最大高度，这里会引申出一个知识点，跳表中的高度不是固定不变的，而是随着插入和删除动态变化的。<strong>maxLevel</strong> 是跳表可以达到的最大高度，这个值是一开始就固定的不变的。</p>
+<p>再把上面的图拿过来，分析一下整个跳表结点间的组织关系</p>
+<p><img src="/posts/4f40161/3622259-7e8eb6e18ce9f5af.webp" alt="跳表"></p>
+<p>跳表中会有一个 <strong>head</strong> 结点，但是没有 <strong>tail</strong> 结点，tail只是一个指针，指向跳表的最后一个结点。这个在初始化函数里有体现</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//初始化一个默认的跳表</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewDefaultSkipTable</span><span class="params">()</span></span> *SkipList &#123;</span><br><span class="line">    rand.Seed(time.Now().UnixNano())</span><br><span class="line">    <span class="keyword">return</span> &amp;SkipList&#123;</span><br><span class="line">        head:     NewSkipListNode(SKIP_TABLE_DEFAULT_MAX_LEVEL, <span class="number">0</span>, <span class="literal">nil</span>),</span><br><span class="line">        size:     <span class="number">0</span>,</span><br><span class="line">        level:    <span class="number">1</span>,</span><br><span class="line">        maxLevel: SKIP_TABLE_DEFAULT_MAX_LEVEL,</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>图中向前的指针 (forward)，也就是橙色的箭头，向后的指针 (backward)，也就是绿色的箭头。<br>forward指针在level中，也就是每一层都有一个向前的指针，backward只存在于node中，也就是每个节点只有一个向后的指针。想一下为啥只需要一个向后的指针呢？？？看完整个查找过程就明白为啥只需要一个向后指针就行了。</p>
+<h3 id="插入node"><a href="#插入node" class="headerlink" title="插入node"></a>插入node</h3><p>基础知识准备的差不多了，开始进入跳表的插入逻辑，先通过一张图把逻辑展示一下</p>
+<p><img src="/posts/4f40161/3622259-4a320f4d9ffe2c71.webp" alt="插入元素"></p>
+<p>插入元素的第一步就是先查找元素。因为是有序链表，元素都是按序排列的，插入元素前先找到元素应该在的位置。</p>
+<p>图中要把score为3的元素插入跳表中，带序号的箭头（指针）是搜索顺序，其中黑色的箭头是实际确定的路径，在搜索过程中，还要记录一下rank，也就是经过所有node的span之和。<br>先明确一下我们要搜索的结点是哪个。我们要找一个小于3的最大的数（先不考小数和虑链表中有多个3的情况），体现在图中，也就是我们要找到元素2的位置。</p>
+<p>搜索前先确定 当前跳表的最高level值。也可以无脑从最上层开始，但是没有意义。图中最高level是4，也就是level3（因为level数组从0开始）。然后从头结点（head）的level层（level3）开始。</p>
+<p>先设一个临时指针 <strong>t</strong> 指向head结点。<br>先通过图中 <strong>1</strong> 指针，指向的是元素4，要插入的节点是3，这个明显是大于3的，所以不符合。划重点了 <strong>当 现在的node当前层的下一个node不符合条件时，就需要开始搜索下一层</strong> 这算是一个转移条件吧。<br>这时候当前node还是在head，所以从head的level2开始向右搜索。此时node的下一个node是1，1小于3，所以符合条件，所以 <strong>t</strong> 指针要指向 <strong>1</strong> node，再记录一下head的span值。</p>
+<p>如此往复，经过 <strong>3</strong> <strong>4</strong> <strong>5</strong> 指针的判断，最终来到了node 2 的level0，这时node2的下一个node是大于3的，而此时也是最后一层了，所以node 2 就是小于3 的最大值了，也就是要找的元素。</p>
+<p>找到合适的位置，接下来就是把node 3 插入进去了，并把span调整一下。</p>
+<p>在确定好要插入的位置后，还要确定node3元素的level高度，这个高度按照理想状态跳表中间的node是最高的，类似一个 <strong>山</strong> 字型，山字的左半边，再找到中间的node，这个node是次高的，以此类推。但实际上，跳表没有严格执行这种理想状态，node的高度是通过 <strong>随机</strong> 数确定的，你没看错，就是通过随机数确定。这也就是跳表相对红黑树实现起来简单的原因。</p>
+<p>这是随机函数</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//跳表加一层索引的概率</span></span><br><span class="line"><span class="keyword">var</span> SKIPLIST_P = <span class="number">0.25</span></span><br><span class="line"></span><br><span class="line"><span class="comment">//随机索引的层数</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(list *SkipList)</span></span> randLevel() <span class="type">int</span> &#123;</span><br><span class="line">    level := <span class="number">1</span></span><br><span class="line">    <span class="keyword">for</span> (rand.Uint32()&amp;<span class="number">0xFFFF</span>) &lt; <span class="type">uint32</span>(<span class="number">0xFFFF</span>*SKIPLIST_P) &amp;&amp; level &lt; list.maxLevel &#123;</span><br><span class="line">        level++</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> level</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(list *SkipList)</span></span> randLevel() <span class="type">int</span> &#123;</span><br><span class="line">    level := <span class="number">1</span></span><br><span class="line">    <span class="keyword">for</span> rand.Int31n(<span class="number">100</span>) &lt; <span class="number">25</span> &amp;&amp; level &lt; list.maxLevel &#123;</span><br><span class="line">        level++</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> level</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>上面这两段函数功能都是一样的，都是25%的概率让node 的 level 数+1。</p>
+<p>下面就是整个插入node的源码</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//插入一个结点</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(list *SkipList)</span></span> InsertByScore(score <span class="type">float64</span>, value ISkipListNode) *SkipListNode &#123;</span><br><span class="line">    rank := <span class="built_in">make</span>([]<span class="type">int64</span>, list.maxLevel)</span><br><span class="line">    update := <span class="built_in">make</span>([]*SkipListNode, list.maxLevel)</span><br><span class="line">    t := list.head</span><br><span class="line">    <span class="comment">//搜索node</span></span><br><span class="line">    <span class="keyword">for</span> i := list.level - <span class="number">1</span>; i &gt;= <span class="number">0</span>; i-- &#123;</span><br><span class="line">        <span class="keyword">if</span> i == list.level<span class="number">-1</span> &#123;</span><br><span class="line">            rank[i] = <span class="number">0</span></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            rank[i] = rank[i+<span class="number">1</span>]</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//当前层的下一个结点存在 &amp;&amp; (下一个结点score&lt;score || 当score相同时,比较这两个结点,下一个结点&lt;新插入的结点)</span></span><br><span class="line">        <span class="keyword">for</span> t.Next(i) != <span class="literal">nil</span> &amp;&amp; (t.Next(i).score &lt; score || (t.Next(i).score == value.Score() &amp;&amp; t.Next(i).value.Compare(value) &lt; <span class="number">0</span>)) &#123;</span><br><span class="line">            rank[i] += t.level[i].span</span><br><span class="line">            t = t.Next(i)</span><br><span class="line">        &#125;</span><br><span class="line">        update[i] = t</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    level := list.randLevel()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> level &gt; list.level &#123;</span><br><span class="line">        <span class="comment">//处理rand level后, level&gt;当前level后的情况</span></span><br><span class="line">        <span class="keyword">for</span> i := list.level; i &lt; level; i++ &#123;</span><br><span class="line">            rank[i] = <span class="number">0</span></span><br><span class="line">            update[i] = list.head</span><br><span class="line">            update[i].SetSpan(i, list.size)</span><br><span class="line">        &#125;</span><br><span class="line">        list.level = level</span><br><span class="line">    &#125;</span><br><span class="line">    newNode := NewSkipListNode(level, score, value)</span><br><span class="line">    <span class="comment">//插入新的node</span></span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; level; i++ &#123;</span><br><span class="line">        newNode.SetNext(i, update[i].Next(i))</span><br><span class="line">        update[i].SetNext(i, newNode)</span><br><span class="line"></span><br><span class="line">        newNode.SetSpan(i, update[i].Span(i)-(rank[<span class="number">0</span>]-rank[i]))</span><br><span class="line">        update[i].SetSpan(i, rank[<span class="number">0</span>]-rank[i]+<span class="number">1</span>)</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//处理新增结点的span</span></span><br><span class="line">    <span class="keyword">for</span> i := level; i &lt; list.level; i++ &#123;</span><br><span class="line">        update[i].level[i].span++</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//处理新节点的后退指针</span></span><br><span class="line">    <span class="keyword">if</span> update[<span class="number">0</span>] == list.head &#123;</span><br><span class="line">        newNode.backward = <span class="literal">nil</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        newNode.backward = update[<span class="number">0</span>]</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//判断新插入的节点是不是最后一个节点</span></span><br><span class="line">    <span class="keyword">if</span> newNode.Next(<span class="number">0</span>) != <span class="literal">nil</span> &#123;</span><br><span class="line">        newNode.Next(<span class="number">0</span>).backward = newNode</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">//如果是最后一个节点,就让tail指针指向这新插入的节点</span></span><br><span class="line">        list.tail = newNode</span><br><span class="line">    &#125;</span><br><span class="line">    list.size++</span><br><span class="line">    <span class="keyword">return</span> newNode</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在搜索过程中，需要一个 <strong>rank</strong> 数组和一个 <strong>update</strong> 数组 这两个辅助结构。<br>rank用来记录每层的排名值，用来后面调整新node 的rank 使用。 update用来记录从上而下经过的路径，也就是新node的每一层在跳表中的上一个node。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//当前层的下一个结点存在 &amp;&amp; (下一个结点score&lt;score || 当score相同时,比较这两个结点,下一个结点&lt;新插入的结点)</span></span><br><span class="line"><span class="keyword">for</span> t.Next(i) != <span class="literal">nil</span> &amp;&amp; (t.Next(i).score &lt; score || (t.Next(i).score == value.Score() &amp;&amp; t.Next(i).value.Compare(value) &lt; <span class="number">0</span>)) &#123;</span><br><span class="line">    rank[i] += t.level[i].span</span><br><span class="line">    t = t.Next(i)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面是搜索过程中，判断是右移还是调到下一层的逻辑。这里不止需要判断node的socore，还要考虑两个node 的 score相同的情况，两个node 的 socre相同时，需要通过<strong>Compare</strong> 函数判断两个node的大小。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">level := list.randLevel()</span><br><span class="line"><span class="keyword">if</span> level &gt; list.level &#123;</span><br><span class="line">    <span class="comment">//处理rand level后, level&gt;当前level后的情况</span></span><br><span class="line">    <span class="keyword">for</span> i := list.level; i &lt; level; i++ &#123;</span><br><span class="line">        rank[i] = <span class="number">0</span></span><br><span class="line">        update[i] = list.head</span><br><span class="line">        update[i].SetSpan(i, list.size)</span><br><span class="line">    &#125;</span><br><span class="line">    list.level = level</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这段代码，是确定新node的高度后，处理一下新加层的。因为在搜索的时候，没有把现在高出层数的head放到update中，现在放到其中。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//插入新的node</span></span><br><span class="line"><span class="keyword">for</span> i := <span class="number">0</span>; i &lt; level; i++ &#123;</span><br><span class="line">    newNode.SetNext(i, update[i].Next(i))</span><br><span class="line">    update[i].SetNext(i, newNode)</span><br><span class="line"></span><br><span class="line">    newNode.SetSpan(i, update[i].Span(i)-(rank[<span class="number">0</span>]-rank[i]))</span><br><span class="line">    update[i].SetSpan(i, rank[<span class="number">0</span>]-rank[i]+<span class="number">1</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这段代码是通过调整node的前后指针，将新的node加入到跳表中。并且调整node的span值。这时候，span值是到下个node的距离而不是上个node到这的距离的好处就提现出来了，因为是到下个node的距离，只需要改当前node的span值就好了，如果存的是上个node到这个node的距离，就需要改下个node的span了，改动起了就会麻烦了。说的可能有点啰嗦，自己推导一遍就能体会出来了。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//处理新增结点的span</span></span><br><span class="line"><span class="keyword">for</span> i := level; i &lt; list.level; i++ &#123;</span><br><span class="line">    update[i].level[i].span++</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这段可能是不太好理解的，这段代码的作用是，如果新node的level小于跳表中的最大level时（新node的level是2，此时跳表中最大的level是5的情况），这时候要把2上面的所有的node的span+1。</p>
+<p>剩下的，处理新node的后退指针（backward）和判断是否是最后一个node，的情况就很简单了。</p>
+<p>到现在，插入node就完成了，是不是也不难嘛，对不对。其实跳表中最复杂的就是插入过程了，剩下的删除，更新，查找就是差不多的逻辑，先找到关键node，再做处理。</p>
+<h3 id="删除node"><a href="#删除node" class="headerlink" title="删除node"></a>删除node</h3><p><img src="/posts/4f40161/3622259-796f3d16ab6ea01a.webp" alt="删除node"></p>
+<p>同样的，删除也是要先搜索，通过黑色箭头的路径，找到要删除的node前一个，然后修改目标node的上一个node的指针,跳过目标node,完成删除,最后调整目标node前面node的span值。</p>
+<p>先搜索node,并记录到update数组</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//获取找到该结点的各层结点(路径)</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(list *SkipList)</span></span> GetUpdateList(node *SkipListNode) (update []*SkipListNode) &#123;</span><br><span class="line">    update = <span class="built_in">make</span>([]*SkipListNode, list.maxLevel)</span><br><span class="line">    t := list.head</span><br><span class="line">    <span class="keyword">for</span> i := list.level - <span class="number">1</span>; i &gt;= <span class="number">0</span>; i-- &#123;</span><br><span class="line">        <span class="keyword">for</span> t.Next(i) != <span class="literal">nil</span> &amp;&amp; (t.Next(i).score &lt; node.score || (t.Next(i).score == node.score &amp;&amp; t.Next(i).value.Compare(node.value) &lt; <span class="number">0</span>)) &#123;</span><br><span class="line">            t = t.Next(i)</span><br><span class="line">        &#125;</span><br><span class="line">        update[i] = t</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这段逻辑和插入时的搜索逻辑一样</p>
+<p>下面是删除的逻辑</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//删除对应的结点</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(list *SkipList)</span></span> Delete(node *SkipListNode, update []*SkipListNode) &#123;</span><br><span class="line">    <span class="keyword">if</span> node == <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//head 不能删</span></span><br><span class="line">    <span class="keyword">if</span> node == list.head &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; list.level; i++ &#123;</span><br><span class="line">        <span class="keyword">if</span> update[i].Next(i) == node &#123;</span><br><span class="line">            <span class="comment">//修改span</span></span><br><span class="line">            update[i].SetSpan(i, update[i].Span(i)+node.Span(i)<span class="number">-1</span>)</span><br><span class="line">            <span class="comment">//删除对应的结点</span></span><br><span class="line">            update[i].SetNext(i, node.Next(i))</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            update[i].level[i].span--</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//处理node的后指针</span></span><br><span class="line">    <span class="keyword">if</span> node.Next(<span class="number">0</span>) == <span class="literal">nil</span> &#123; <span class="comment">//node是最后一个,把tail指针指向node的上一个(update[0])</span></span><br><span class="line">        list.tail = update[<span class="number">0</span>]</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123; <span class="comment">//node不是最后一个,node的下一个指向node的上一个(update[0])</span></span><br><span class="line">        node.Next(<span class="number">0</span>).backward = update[<span class="number">0</span>]</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//处理删掉的是最高level的情况,当前的level要对应的--</span></span><br><span class="line">    <span class="keyword">for</span> list.level &gt; <span class="number">1</span> &amp;&amp; list.head.Next(list.level<span class="number">-1</span>) == <span class="literal">nil</span> &#123;</span><br><span class="line">        list.level--</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    list.size--</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>删除node的代码就简单多了，这里通过参数传入从最高到找到node的路径，也就是update数组。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> i := <span class="number">0</span>; i &lt; list.level; i++ &#123;</span><br><span class="line">    <span class="keyword">if</span> update[i].Next(i) == node &#123;</span><br><span class="line">        <span class="comment">//修改span</span></span><br><span class="line">        update[i].SetSpan(i, update[i].Span(i)+node.Span(i)<span class="number">-1</span>)</span><br><span class="line">        <span class="comment">//删除对应的结点</span></span><br><span class="line">        update[i].SetNext(i, node.Next(i))</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        update[i].level[i].span--</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个段逻辑就是删除node的，删除说白了就是让目标node的前面的node的后指针指向目标node后面的node。<br>剩下的就是处理node的后退指针和判断是否是最后一个node了。</p>
+<h3 id="更新node"><a href="#更新node" class="headerlink" title="更新node"></a>更新node</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//更新结点的score</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(list *SkipList)</span></span> UpdateScore(node *SkipListNode, score <span class="type">float64</span>) &#123;</span><br><span class="line">    <span class="keyword">if</span> score == node.score &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//更新后,分数还是 &lt; next node的位置不用变</span></span><br><span class="line">    <span class="keyword">if</span> score &gt; node.score &#123;</span><br><span class="line">        <span class="keyword">if</span> node.Next(<span class="number">0</span>) != <span class="literal">nil</span> &amp;&amp; score &lt; node.Next(<span class="number">0</span>).score &#123;</span><br><span class="line">            node.score = score</span><br><span class="line">            <span class="keyword">return</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//更新后,分数还是 &gt; per node的位置不用变</span></span><br><span class="line">    <span class="keyword">if</span> score &lt; node.score &#123;</span><br><span class="line">        <span class="keyword">if</span> node.Pre() != <span class="literal">nil</span> &amp;&amp; score &gt; node.Pre().score &#123;</span><br><span class="line">            node.score = score</span><br><span class="line">            <span class="keyword">return</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//删掉node,重新插入</span></span><br><span class="line">    updateList := list.GetUpdateList(node)</span><br><span class="line">    list.Delete(node, updateList)</span><br><span class="line">    <span class="comment">//重新插入</span></span><br><span class="line">    list.InsertByScore(score, node.value)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>更新node的score，更新node的前提是找到目标node，原理和前面的插入，删除时的搜索逻辑一样，就不赘述了。<br>说一下更新node score的逻辑把，最简单就是把node删了，然后再插入。当然这样的逻辑是可以优化的，比如有一种情况</p>
+<p><img src="/posts/4f40161/3622259-f323e13d9f1fe929.webp" alt="更新node"></p>
+<p>如图所示，要把node4的score更新成5，这时候修改node的score不影响node的位置，所以这种情况就只需要修改node的score就好了，不用考虑node在跳表中的位置。</p>
+<p>对于那种修改分数会改变位置的情况，就需要先删除node，再重新插入node了。</p>
+<h3 id="查找node"><a href="#查找node" class="headerlink" title="查找node"></a>查找node</h3><p>看到这里，查找node应该是非常简单了吧，因为前面的插入，更新，删除都需要前查找node。但是查找分两种情况，一种是根据排名查找，另一种是根据score查找。</p>
+<p>先看根据排名查找</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//根据排名 范围 查找 node</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(list *SkipList)</span></span> GetNodeByRank(left, right <span class="type">int64</span>) (result []*SkipListNode) &#123;</span><br><span class="line">    <span class="comment">//范围出错</span></span><br><span class="line">    <span class="keyword">if</span> list.Size() == <span class="number">0</span> || left == <span class="number">0</span> || right == <span class="number">0</span> || right &lt; left || left &gt; list.Size() &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line">    tRank := <span class="type">int64</span>(<span class="number">0</span>)</span><br><span class="line">    t := list.head</span><br><span class="line">    result = <span class="built_in">make</span>([]*SkipListNode, <span class="number">0</span>, right-left+<span class="number">1</span>)</span><br><span class="line">    <span class="comment">//先找到排名最小的元素,然后向右一点点查找,直到找到排名最大的元素</span></span><br><span class="line">    <span class="keyword">for</span> i := list.level - <span class="number">1</span>; i &gt;= <span class="number">0</span>; i-- &#123;</span><br><span class="line">        <span class="keyword">for</span> t.Next(i) != <span class="literal">nil</span> &amp;&amp; tRank+t.level[i].span &lt;= left &#123;</span><br><span class="line">            tRank += t.level[i].span</span><br><span class="line">            t = t.Next(i)</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> tRank == left &#123;</span><br><span class="line">            <span class="keyword">for</span> ; t != <span class="literal">nil</span> &amp;&amp; tRank &lt;= right; t = t.Next(<span class="number">0</span>) &#123;</span><br><span class="line">                result = <span class="built_in">append</span>(result, t)</span><br><span class="line">                tRank++</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">return</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>先排除不符合的情况，再根据之前的查找逻辑，一步步去查找。不同的是，现在的限制条件时排名。</p>
+<p>在看根据score查找</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">//判断 这个跳表 的最大值和最小值 是否包含 要查询的score范围</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(list *SkipList)</span></span> ScoreInRange(findRange *SkipListFindRange) <span class="type">bool</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> !findRange.MaxInf &amp;&amp; list.head.Next(<span class="number">0</span>).score &gt; findRange.Max &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> !findRange.MinInf &amp;&amp; list.tail.score &lt; findRange.Min &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//根据 score 范围 查找 node</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(list *SkipList)</span></span> GetNodeByScore(findRange *SkipListFindRange) (result []*SkipListNode) &#123;</span><br><span class="line">    <span class="keyword">if</span> findRange == <span class="literal">nil</span> || list.Size() == <span class="number">0</span> &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//查找范围不在这跳表中,直接return</span></span><br><span class="line">    <span class="keyword">if</span> !list.ScoreInRange(findRange) &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line">    t := list.head</span><br><span class="line">    <span class="keyword">if</span> findRange.MinInf &#123;</span><br><span class="line">        <span class="comment">//从头开始查找</span></span><br><span class="line">        t = list.head.Next(<span class="number">0</span>)</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">//不是从头,找到最小的那个元素</span></span><br><span class="line">        <span class="keyword">for</span> i := list.level - <span class="number">1</span>; i &gt;= <span class="number">0</span>; i-- &#123;</span><br><span class="line">            <span class="keyword">for</span> t.Next(i) != <span class="literal">nil</span> &amp;&amp; t.Next(i).score &lt; findRange.Min &#123;</span><br><span class="line">                t = t.Next(i)</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">for</span> &#123;</span><br><span class="line">        <span class="comment">//符合范围的条件 (从负无穷 || 当前的score &gt;= 查找的最小值) &amp;&amp; (到正无穷 || 当前元素 &lt;= 查找的最大值)</span></span><br><span class="line">        <span class="keyword">if</span> (findRange.MinInf || t.score &gt;= findRange.Min) &amp;&amp; (findRange.MaxInf || t.score &lt;= findRange.Max) &#123;</span><br><span class="line">            result = <span class="built_in">append</span>(result, t)</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> t.Next(<span class="number">0</span>) == <span class="literal">nil</span> || (!findRange.MaxInf &amp;&amp; t.Next(<span class="number">0</span>).score &gt; findRange.Max) &#123;</span><br><span class="line">            <span class="comment">//下一个元素是空(到尾了) || (不是查找到正无穷 &amp;&amp; 下一个元素的 score &gt; 要查找的最大值)</span></span><br><span class="line">            <span class="keyword">break</span></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">//向右移动</span></span><br><span class="line">            t = t.Next(<span class="number">0</span>)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>根据score查找稍微复杂一点，因为根据score会有正无穷和负无穷这两种情况。这时候只给两个简单的范围值就不够用了，需要用一个结构体来描述范围了。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//根据scores查找元素的条件</span></span><br><span class="line"><span class="keyword">type</span> SkipListFindRange <span class="keyword">struct</span> &#123;</span><br><span class="line">    Min, Max       <span class="type">float64</span> <span class="comment">//最大值和最小值</span></span><br><span class="line">    MinInf, MaxInf <span class="type">bool</span>    <span class="comment">//是否是正无穷和负无穷</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在查找前先判断一下，给定的范围是否在跳表的范围内，如果不在就不用查找了。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">t := list.head</span><br><span class="line"><span class="keyword">if</span> findRange.MinInf &#123;</span><br><span class="line">    <span class="comment">//从头开始查找</span></span><br><span class="line">    t = list.head.Next(<span class="number">0</span>)</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">//不是从头,找到最小的那个元素</span></span><br><span class="line">    <span class="keyword">for</span> i := list.level - <span class="number">1</span>; i &gt;= <span class="number">0</span>; i-- &#123;</span><br><span class="line">        <span class="keyword">for</span> t.Next(i) != <span class="literal">nil</span> &amp;&amp; t.Next(i).score &lt; findRange.Min &#123;</span><br><span class="line">            t = t.Next(i)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这段逻辑是确定查找的开始位置也就是找到目标node（根据范围找到最小的node），如果是从负无穷开始，就不用通过之前的方式去确定开始node了，直接从head开始就好了。<br>后面的逻辑就没什么特别的，找到目标弄的后，开始往后找，直到最后或者不符合范围了，就结束。</p>
+<p>好了查找也完成了。</p>
+<p>跳表的基本功能到现在已经完成，剩下的就是把跳表包装一层，去实现redis中zset的功能就好了。具体代码就不贴了，最后我会给出github的连接。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ol>
+<li>跳表可以看做一个支持二分查找的有序双向链表</li>
+<li>跳表中最核心的就是搜索，不管是在插入，更新，删除还是查找中，都要先搜索</li>
+<li>跳表在插入node时，通过随机数确定node中层数的</li>
+<li>跳表的node中，有一个向后的指针，在每一层中有一个向前的指针</li>
+<li>跳表相对于红黑树，优势是相对容易实现，和范围查找方便</li>
+</ol>
+<p>最后在说一下常见的跳表的应用吧。<a target="_blank" rel="noopener" href="https://github.com/redis/redis">redis</a> 的zset就是基于跳表实现的，当然我也是通过读redis的源码，学习跳表的。还有一个是Google开发的 <a target="_blank" rel="noopener" href="https://github.com/google/leveldb">leveldb</a> 也是基于跳表实现的。</p>
+<p>最后放上所有的源码，<a target="_blank" rel="noopener" href="https://github.com/lqxhub/skip_table">github</a>  <a target="_blank" rel="noopener" href="https://gitee.com/lqxlucky/skip_table">gitee</a></p>
+<p>如果这个文章对你有帮助记得给我点个star   谢谢了</p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>QX
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://lqxhub.github.io/posts/4f40161/" title="4000字详解跳表实现(挑战全网中文最详细)">https://lqxhub.github.io/posts/4f40161/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+  <li class="post-copyright-license">
+    <strong>暂时还懒得去弄评论区，有问题欢迎 <a href="mailto:lqxlucky@qq.com" title="lqxlucky@qq.com" rel="noopener" target="_blank">邮件</a> 交流</strong>
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/go/" rel="tag"><i class="fa fa-tag"></i> go</a>
+              <a href="/tags/%E7%AE%97%E6%B3%95/" rel="tag"><i class="fa fa-tag"></i> 算法</a>
+              <a href="/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 数据结构</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/4926d2f3/" rel="prev" title="linux 多线程或多进程 epoll处理 accept 导致惊群">
+      <i class="fa fa-chevron-left"></i> linux 多线程或多进程 epoll处理 accept 导致惊群
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/posts/d9a4c4a4/" rel="next" title="pika编译笔记">
+      pika编译笔记 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <!--关于我页面去掉左边栏-->
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B7%B3%E8%A1%A8%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">1.</span> <span class="nav-text">跳表是什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B7%B3%E8%A1%A8%E7%9A%84%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="nav-number">2.</span> <span class="nav-text">跳表的优缺点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B7%B3%E8%A1%A8%E7%9A%84%E7%BB%93%E6%9E%84%E5%92%8C%E5%AE%9E%E7%8E%B0"><span class="nav-number">3.</span> <span class="nav-text">跳表的结构和实现</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B7%B3%E8%A1%A8node-%E7%9A%84%E7%BB%93%E6%9E%84"><span class="nav-number">3.1.</span> <span class="nav-text">跳表node 的结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B7%B3%E8%A1%A8%E7%BB%93%E6%9E%84"><span class="nav-number">3.2.</span> <span class="nav-text">跳表结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8F%92%E5%85%A5node"><span class="nav-number">3.3.</span> <span class="nav-text">插入node</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%A0%E9%99%A4node"><span class="nav-number">3.4.</span> <span class="nav-text">删除node</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9B%B4%E6%96%B0node"><span class="nav-number">3.5.</span> <span class="nav-text">更新node</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E6%89%BEnode"><span class="nav-number">3.6.</span> <span class="nav-text">查找node</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="QX"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">QX</p>
+  <div class="site-description" itemprop="description">QX的笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">54</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">37</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/lqxhub" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;lqxhub" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:lqxlucky@qq.com" title="E-Mail → mailto:lqxlucky@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">QX</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    <span title="站点总字数">87k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    <span title="站点阅读时长">5:15</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="//cdn.jsdelivr.net/gh/theme-next/theme-next-canvas-nest@1/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

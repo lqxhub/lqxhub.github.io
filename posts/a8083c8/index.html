@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="Ts78qICcAFtPJZg7DfwjJYFH2BsbYh7ICe1k6xMb-C8">
+  <meta name="msvalidate.01" content="C538647907B2EAEBE650AAC7463E551F">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/source-code-pro@2.38.0/source-code-pro.min.css/css?family=Lato:300,300italic,400,400italic,700,700italic|Source Code Pro:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/pace-js@1/themes/blue/pace-theme-minimal.min.css">
+  <script src="//cdn.jsdelivr.net/npm/pace-js@1/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"lqxhub.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="在网络编程中，在同一时刻，多个客户端同时请求同一个资源，如果不做控制，也会带来数据错误。比如在同一时间有10000人去抢10张火车票，10张火车票有可能会买给100个人，这显然是不符合要求的。 在多线程编程中,为了解决线程执行不可控带来的问题,通常情况下都是通过加锁来实现数据同步的。在网络编程中，也可以通过加锁机制来控制。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用mysql中的锁解决高并发问题">
+<meta property="og:url" content="https://lqxhub.github.io/posts/a8083c8/index.html">
+<meta property="og:site_name" content="QX 的笔记">
+<meta property="og:description" content="在网络编程中，在同一时刻，多个客户端同时请求同一个资源，如果不做控制，也会带来数据错误。比如在同一时间有10000人去抢10张火车票，10张火车票有可能会买给100个人，这显然是不符合要求的。 在多线程编程中,为了解决线程执行不可控带来的问题,通常情况下都是通过加锁来实现数据同步的。在网络编程中，也可以通过加锁机制来控制。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-801bea6ef02b13d6.jpg">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-bf3f64430beeca01.jpg">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-b259874f3254fd99.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-811690b2ef25d25d.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-ba4482476ff9ee78.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-48184bff1a6d5188.png">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-3206524302bab201.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-cb4034d4fbf6d486.png">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-9571df6d6d6969d0.png">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-9fa71ed1dd9e7a97.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-4424da5869c313f6.png">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-a7e3773e931456e3.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-553d084474795bbb.png">
+<meta property="article:published_time" content="2018-11-23T09:17:26.000Z">
+<meta property="article:modified_time" content="2024-07-10T06:06:38.902Z">
+<meta property="article:author" content="QX">
+<meta property="article:tag" content="MySQL">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lqxhub.github.io/posts/a8083c8/3622259-801bea6ef02b13d6.jpg">
+
+<link rel="canonical" href="https://lqxhub.github.io/posts/a8083c8/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>使用mysql中的锁解决高并发问题 | QX 的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="QX 的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">QX 的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">37</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">54</span></a>
+
+  </li>
+        <li class="menu-item menu-item-友链">
+
+    <a href="/links/" rel="section"><i class="fa fa-link fa-fw"></i>友链</a>
+
+  </li>
+        <li class="menu-item menu-item-收藏">
+
+    <a href="/collect/" rel="section"><i class="fa fa-archive fa-fw"></i>收藏</a>
+
+  </li>
+        <li class="menu-item menu-item-工具">
+
+    <a href="/tool/" rel="section"><i class="fa fa-heartbeat fa-fw"></i>工具</a>
+
+  </li>
+        <li class="menu-item menu-item-rss">
+
+    <a href="/atom.xml" rel="section"><i class="fa fa-rss fa-fw"></i>RSS</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/lqxhub" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://lqxhub.github.io/posts/a8083c8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="QX">
+      <meta itemprop="description" content="QX的笔记">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="QX 的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          使用mysql中的锁解决高并发问题
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-11-23 17:17:26" itemprop="dateCreated datePublished" datetime="2018-11-23T17:17:26+08:00">2018-11-23</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-07-10 14:06:38" itemprop="dateModified" datetime="2024-07-10T14:06:38+08:00">2024-07-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>2.8k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>10 分钟</span>
+            </span>
+          
+          
+          
+          
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <span id="more"></span>
+
+<h2 id="为什么要加锁"><a href="#为什么要加锁" class="headerlink" title="为什么要加锁"></a>为什么要加锁</h2><blockquote>
+<p>多核计算机的出现,计算机实现真正并行计算,可以在同一时刻,执行多个任务。在多线程编程中，因为线程执行顺序不可控导致的数据错误。比如，多线程的理想状态是这样的<img src="/posts/a8083c8/3622259-801bea6ef02b13d6.jpg" alt="多线程理想.jpg"><br>但是实际情况是这样的:<br><img src="/posts/a8083c8/3622259-bf3f64430beeca01.jpg" alt="多线程实际.jpg"><br>在网络编程中，在同一时刻，多个客户端同时请求同一个资源，如果不做控制，也会带来数据错误。比如在同一时间有10000人去抢10张火车票，10张火车票有可能会买给100个人，这显然是不符合要求的。<br>在多线程编程中,为了解决线程执行不可控带来的问题,通常情况下都是通过加锁来实现数据同步的。在网络编程中，也可以通过加锁机制来控制。</p>
+</blockquote>
+<p>在网络编程中，可以通过给数据库加锁，达到控制并发的目的。在php开发时，基本都是使用mysql作为数据库。所以，就会给mysql加锁控制网络并发引起数据错误问题。</p>
+<h2 id="MySQL的存储引擎"><a href="#MySQL的存储引擎" class="headerlink" title="MySQL的存储引擎"></a>MySQL的存储引擎</h2><blockquote>
+<p>不是要说MySQL的锁吗,怎么说上存储引擎了?因为MySQL存储引擎不同,锁也会不同。MySQL有<strong>MyISAM</strong> 和<strong>InnoDB</strong>两种存储引擎，现在主要使用InnoDB,所以主要介绍InnoDB下锁的使用。</p>
+</blockquote>
+<p>InnoDB引擎支持事务操作，使用事务可以保证多条sql语句执行的完整性(要不都成功,要不都失败)</p>
+<h5 id="事务是由一组SQL语句组成的逻辑处理单元，事务具有4属性"><a href="#事务是由一组SQL语句组成的逻辑处理单元，事务具有4属性" class="headerlink" title="事务是由一组SQL语句组成的逻辑处理单元，事务具有4属性"></a>事务是由一组SQL语句组成的逻辑处理单元，事务具有4属性</h5><ul>
+<li>原子性（Actomicity）：事务是一个原子操作单元，其对数据的修改，要么全都执行，要么全都不执行。</li>
+<li>一致性（Consistent）：在事务开始和完成时，数据都必须保持一致状态。这意味着所有相关的数据规则都必须应用于事务的修改，以操持完整性；事务结束时，所有的内部数据结构（如B树索引或双向链表）也都必须是正确的。</li>
+<li>隔离性（Isolation）：数据库系统提供一定的隔离机制，保证事务在不受外部并发操作影响的“独立”环境执行。这意味着事务处理过程中的中间状态对外部是不可见的，反之亦然。</li>
+<li>持久性（Durable）：事务完成之后，它对于数据的修改是永久性的，即使出现系统故障也能够保持。</li>
+</ul>
+<h5 id="多个事务并发执行会带来新的问题"><a href="#多个事务并发执行会带来新的问题" class="headerlink" title="多个事务并发执行会带来新的问题"></a>多个事务并发执行会带来新的问题</h5><ul>
+<li>更新丢失（Lost Update）：当两个或多个事务选择同一行，然后基于最初选定的值更新该行时，由于每个 事务都不知道其他事务的存在，就会发生丢失更新问题——最后的更新覆盖了其他事务所做的更新。例如，两个编辑人员制作了同一文档的电子副本。每个编辑人员独立地更改其副本，然后保存更改后的副本，这样就覆盖了原始文档。最后保存其更改保存其更改副本的编辑人员覆盖另一个编辑人员所做的修改。如果在一个编辑人员完成并提交事务之前，另一个编辑人员不能访问同一文件，则可避免此问题</li>
+<li>脏读（Dirty Reads）：一个事务正在对一条记录做修改，在这个事务并提交前，这条记录的数据就处于不一致状态；这时，另一个事务也来读取同一条记录，如果不加控制，第二个事务读取了这些“脏”的数据，并据此做进一步的处理，就会产生未提交的数据依赖关系。这种现象被形象地叫做“脏读”。</li>
+<li>不可重复读（Non-Repeatable Reads）：一个事务在读取某些数据已经发生了改变、或某些记录已经被删除了！这种现象叫做“不可重复读”。</li>
+<li>幻读（Phantom Reads）：一个事务按相同的查询条件重新读取以前检索过的数据，却发现其他事务插入了满足其查询条件的新数据，这种现象就称为“幻读”。</li>
+</ul>
+<p>曾经年少无知的我,以为使用事务就能保证并发情况下数据同步问题,后来的一次惨痛经历才明白了,事务不能保证并发情况的数据同步问题,需要事务和锁同时使用才能保证。</p>
+<h2 id="锁的种类"><a href="#锁的种类" class="headerlink" title="锁的种类"></a>锁的种类</h2><blockquote>
+<ul>
+<li>乐观锁 机制采取了更加宽松的加锁机制。悲观锁大多数情况下依靠数据库的锁机制实现，以保证操作最大程度的独占性。但随之而来的就是数据库性能的大量开销，特别是对长事务而言，这样的开销往往无法承受。相对悲观锁而言，乐观锁更倾向于开发运用。</li>
+<li>悲观锁 具有强烈的独占和排他特性。它指的是对数据被外界（包括本系统当前的其他事务，以及来自外部系统的事务处理）修改持保守态度，因此，在整个数据处理过程中，将数据处于锁定状态。悲观锁的实现，往往依靠数据库提供的锁机制（也只有数据库层提供的锁机制才能真正保证数据访问的排他性，否则，即使在本系统中实现了加锁机制，也无法保证外部系统不会修改数据）。</li>
+</ul>
+</blockquote>
+<h2 id="MySQL中锁的种类"><a href="#MySQL中锁的种类" class="headerlink" title="MySQL中锁的种类"></a>MySQL中锁的种类</h2><blockquote>
+<p>乐观锁和悲观锁是一种思想,不是具体实现,在MySQL中,有锁的具体的实现方式<br>(文中的线程在MySQL中可以视作MySQL的连接)</p>
+<ul>
+<li>共享锁 一个线程在持有锁时,其他的线程可以查询被锁的数据,但是不能修改,不能删除。实现方式<br><code> SELECT * FROM table_name WHERE id =? lock in share mode;</code></li>
+<li>排它锁 一个线程在持有锁时,其他的线程不能查询,不能更新,不能删除被锁的数据,直到锁被释放.<br><code>SELECT * FROM table_name WHERE id =? for update</code></li>
+<li>总结一下:共享锁类似于java中的读锁,一个线程在持有乐观锁的时候,其他的线程也可以对被锁的数据进行读操作,但是不能对被锁的数据进行删除和更新操作;排他锁类似于java的写锁,一个线程持有写锁的时候,其他的线程不能再对被锁的数据进行任何查询,更新,删除操作。</li>
+<li><strong>重点</strong> InnoDB的行锁是基于索引实现的,如果在查询中不使用索引,会锁表。</li>
+</ul>
+</blockquote>
+<h2 id="MySQL锁粒度"><a href="#MySQL锁粒度" class="headerlink" title="MySQL锁粒度"></a>MySQL锁粒度</h2><blockquote>
+<ul>
+<li>表级锁 是MySQL中锁定粒度最大的一种锁，表示对当前操作的整张表加锁，它实现简单，资源消耗较少，被大部分MySQL引擎支持。最常使用的MyISAM与InnoDB都支持表级锁定。表级锁分为表共享读锁与表独占写锁。</li>
+<li>行级锁 是Mysql中锁定粒度最细的一种锁，表示只针对当前操作的行进行加锁。行级锁能大大减少数据库操作的冲突。其加锁粒度最小，但加锁的开销也最大。行级锁分为共享锁 和 排他锁。</li>
+</ul>
+</blockquote>
+<h2 id="共享锁的使用"><a href="#共享锁的使用" class="headerlink" title="共享锁的使用"></a>共享锁的使用</h2><h4 id="注意-下面的操作-都是行锁操作-MySQL为InnoDB引擎-id为自增主键"><a href="#注意-下面的操作-都是行锁操作-MySQL为InnoDB引擎-id为自增主键" class="headerlink" title="注意: 下面的操作,都是行锁操作,MySQL为InnoDB引擎,id为自增主键"></a>注意: 下面的操作,都是行锁操作,MySQL为InnoDB引擎,id为自增主键</h4><p>先创建一个测试表</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `test`  (</span><br><span class="line">  `id` <span class="type">int</span>(<span class="number">0</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> AUTO_INCREMENT,</span><br><span class="line">  `name` <span class="type">varchar</span>(<span class="number">20</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  `number` <span class="type">bigint</span>(<span class="number">0</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  `age` <span class="type">int</span>(<span class="number">0</span>) <span class="keyword">NULL</span>,</span><br><span class="line">  <span class="keyword">PRIMARY</span> KEY (`id`)</span><br><span class="line">) ENGINE <span class="operator">=</span> InnoDB;</span><br></pre></td></tr></table></figure>
+<p>看一下随便插入的几条数据<br><img src="/posts/a8083c8/3622259-b259874f3254fd99.webp"></p>
+<blockquote>
+<p>没有问题,使用共享锁看一下效果:</p>
+<ol>
+<li>开启事务 <code>begin;</code></li>
+<li>给id为1的数据加共享锁 <code>mysql&gt; select * from test where id=1 lock in share mode;</code></li>
+<li>分别使用加锁和不加锁查询id为1 的数据<br> <img src="/posts/a8083c8/3622259-811690b2ef25d25d.webp"><br>都可以查询到数据</li>
+</ol>
+</blockquote>
+<blockquote>
+<p>修改id为1 的数据看看<br><img src="/posts/a8083c8/3622259-ba4482476ff9ee78.webp"><br>sql语句会一直停在这里,直到超时或者锁释放(事务提交或者回滚)<br><img src="/posts/a8083c8/3622259-48184bff1a6d5188.png"><br>左边的事务提交后,右边的sql会执行,完成更新操作。</p>
+</blockquote>
+<p>同样,删除操作也会等待锁释放才能操作,这里就不演示了。</p>
+<hr>
+<blockquote>
+<p>再看一下另一种情况,左边锁住id为5的数据,右边更新id为1 的数据,不受影响。这就是行级锁，只会锁住相关的一行数据<br><img src="/posts/a8083c8/3622259-3206524302bab201.webp"></p>
+</blockquote>
+<h2 id="排他锁的使用"><a href="#排他锁的使用" class="headerlink" title="排他锁的使用"></a>排他锁的使用</h2><p>还是使用test这张表</p>
+<blockquote>
+<ol>
+<li>开启事务<code>begin;</code></li>
+<li>给id1的数据加排他锁<code>select * from test where id = 1 for update;</code></li>
+<li>在右边查询id为1的数据<br> <img src="/posts/a8083c8/3622259-cb4034d4fbf6d486.png"><br> 查询语句会一直等待,直到超时或者锁释放(左边commit或者rollback)</li>
+</ol>
+</blockquote>
+<hr>
+<blockquote>
+<p>左边commit后<br><img src="/posts/a8083c8/3622259-9571df6d6d6969d0.png"></p>
+</blockquote>
+<hr>
+<blockquote>
+<p>使用排它锁对id为5的数据加锁后,更新id为5的数据<br><img src="/posts/a8083c8/3622259-9fa71ed1dd9e7a97.webp"><br>sql语句同样会等待,直到超时或者锁释放,删除操作也是一样</p>
+</blockquote>
+<blockquote>
+<p>看一下对id为1的数据加锁,然后操作id不为1的数据的情况<br><img src="/posts/a8083c8/3622259-4424da5869c313f6.png"><br>没有问题,MySQL只是锁住了id为5的数据,其他的数据都可以操作。</p>
+</blockquote>
+<h3 id="看一下InnoDB引擎锁表的情况"><a href="#看一下InnoDB引擎锁表的情况" class="headerlink" title="看一下InnoDB引擎锁表的情况"></a>看一下InnoDB引擎锁表的情况</h3><blockquote>
+<p><img src="/posts/a8083c8/3622259-a7e3773e931456e3.webp"><br>我们常常说InnoDB是行锁，但是这里介绍一下它锁表的情况。因为name列没有索引,所以,在加行锁的时候,MySQL不能加正常加行锁,会锁住整张表。<br>InnoDB行锁是通过索引上的索引项来实现的，这一点ＭySQL与Oracle不同，后者是通过在数据中对相应数据行加锁来实现的。InnoDB这种行锁实现特点意味者：只有通过索引条件检索数据，InnoDB才会使用行级锁，否则，InnoDB将使用表锁！<br>在实际应用中，要特别注意InnoDB行锁的这一特性，不然的话，可能导致大量的锁冲突，从而影响并发性能。</p>
+</blockquote>
+<h3 id="再看另一种情况"><a href="#再看另一种情况" class="headerlink" title="再看另一种情况"></a>再看另一种情况</h3><blockquote>
+<p><img src="/posts/a8083c8/3622259-553d084474795bbb.png"><br>使用排它锁对id为1的数据加锁时,使用不加锁的查询和没有约束的查询时,一样可以立刻查询到数据。只有使用加锁的查询或者更新和删除时才会等待锁释放。</p>
+</blockquote>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li>InnoDB的锁配合事务使用</li>
+<li>MySQL有共享锁和排它锁</li>
+<li>使用共享锁时,其他线程(连接)可以查询数据,但是不能更新和删除数据,使用排它锁时,不能查询数据不能更新数据,不能删除数据</li>
+<li>MySQL的InnoDB引擎支持行级锁和表级锁,行级锁</li>
+<li>InnoDB的行级锁是基于索引的,加锁是对索引加锁,加锁时没有索引时会锁住整张表</li>
+</ul>
+<p>以上是我对MySQL锁的理解,文中如果有不正确的地方,还请各位大哥批评指正。</p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>QX
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://lqxhub.github.io/posts/a8083c8/" title="使用mysql中的锁解决高并发问题">https://lqxhub.github.io/posts/a8083c8/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+  <li class="post-copyright-license">
+    <strong>暂时还懒得去弄评论区，有问题欢迎 <a href="mailto:lqxlucky@qq.com" title="lqxlucky@qq.com" rel="noopener" target="_blank">邮件</a> 交流</strong>
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"><i class="fa fa-tag"></i> MySQL</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/82773ef8/" rel="prev" title="mysql使用索引提高查询效率">
+      <i class="fa fa-chevron-left"></i> mysql使用索引提高查询效率
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/posts/a3fd02f/" rel="next" title="使用tcpdump+wireshark抓包分析网络数据包">
+      使用tcpdump+wireshark抓包分析网络数据包 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <!--关于我页面去掉左边栏-->
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%8A%A0%E9%94%81"><span class="nav-number">1.</span> <span class="nav-text">为什么要加锁</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MySQL%E7%9A%84%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E"><span class="nav-number">2.</span> <span class="nav-text">MySQL的存储引擎</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E4%BA%8B%E5%8A%A1%E6%98%AF%E7%94%B1%E4%B8%80%E7%BB%84SQL%E8%AF%AD%E5%8F%A5%E7%BB%84%E6%88%90%E7%9A%84%E9%80%BB%E8%BE%91%E5%A4%84%E7%90%86%E5%8D%95%E5%85%83%EF%BC%8C%E4%BA%8B%E5%8A%A1%E5%85%B7%E6%9C%894%E5%B1%9E%E6%80%A7"><span class="nav-number">2.0.0.1.</span> <span class="nav-text">事务是由一组SQL语句组成的逻辑处理单元，事务具有4属性</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E5%A4%9A%E4%B8%AA%E4%BA%8B%E5%8A%A1%E5%B9%B6%E5%8F%91%E6%89%A7%E8%A1%8C%E4%BC%9A%E5%B8%A6%E6%9D%A5%E6%96%B0%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-number">2.0.0.2.</span> <span class="nav-text">多个事务并发执行会带来新的问题</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%94%81%E7%9A%84%E7%A7%8D%E7%B1%BB"><span class="nav-number">3.</span> <span class="nav-text">锁的种类</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MySQL%E4%B8%AD%E9%94%81%E7%9A%84%E7%A7%8D%E7%B1%BB"><span class="nav-number">4.</span> <span class="nav-text">MySQL中锁的种类</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MySQL%E9%94%81%E7%B2%92%E5%BA%A6"><span class="nav-number">5.</span> <span class="nav-text">MySQL锁粒度</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B1%E4%BA%AB%E9%94%81%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="nav-number">6.</span> <span class="nav-text">共享锁的使用</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%B3%A8%E6%84%8F-%E4%B8%8B%E9%9D%A2%E7%9A%84%E6%93%8D%E4%BD%9C-%E9%83%BD%E6%98%AF%E8%A1%8C%E9%94%81%E6%93%8D%E4%BD%9C-MySQL%E4%B8%BAInnoDB%E5%BC%95%E6%93%8E-id%E4%B8%BA%E8%87%AA%E5%A2%9E%E4%B8%BB%E9%94%AE"><span class="nav-number">6.0.1.</span> <span class="nav-text">注意: 下面的操作,都是行锁操作,MySQL为InnoDB引擎,id为自增主键</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%92%E4%BB%96%E9%94%81%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="nav-number">7.</span> <span class="nav-text">排他锁的使用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%9C%8B%E4%B8%80%E4%B8%8BInnoDB%E5%BC%95%E6%93%8E%E9%94%81%E8%A1%A8%E7%9A%84%E6%83%85%E5%86%B5"><span class="nav-number">7.1.</span> <span class="nav-text">看一下InnoDB引擎锁表的情况</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%8D%E7%9C%8B%E5%8F%A6%E4%B8%80%E7%A7%8D%E6%83%85%E5%86%B5"><span class="nav-number">7.2.</span> <span class="nav-text">再看另一种情况</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">8.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="QX"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">QX</p>
+  <div class="site-description" itemprop="description">QX的笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">54</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">37</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/lqxhub" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;lqxhub" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:lqxlucky@qq.com" title="E-Mail → mailto:lqxlucky@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">QX</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    <span title="站点总字数">87k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    <span title="站点阅读时长">5:15</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="//cdn.jsdelivr.net/gh/theme-next/theme-next-canvas-nest@1/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
