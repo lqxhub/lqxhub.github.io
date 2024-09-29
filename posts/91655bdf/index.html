@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.ico">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="Ts78qICcAFtPJZg7DfwjJYFH2BsbYh7ICe1k6xMb-C8">
+  <meta name="msvalidate.01" content="C538647907B2EAEBE650AAC7463E551F">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/source-code-pro@2.38.0/source-code-pro.min.css/css?family=Lato:300,300italic,400,400italic,700,700italic|Source Code Pro:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/pace-js@1/themes/blue/pace-theme-minimal.min.css">
+  <script src="//cdn.jsdelivr.net/npm/pace-js@1/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"lqxhub.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":true},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="linux系统中，实现socket多路复用的技术有select 、poll 、epoll 等多种方式。这些不同方式个有优缺点和适用场景，这不是本文讨论的重点，又兴趣的可以自己搜索学习一下。但是在高并发场景下， epoll 性能是最高的， Nginx 都听说过吧，大名鼎鼎的Nginx 底层用的就是 epoll。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="linux下 C++ 使用 epoll 多路复用 实现高性能的tcpserver">
+<meta property="og:url" content="https://lqxhub.github.io/posts/91655bdf/index.html">
+<meta property="og:site_name" content="QX 的笔记">
+<meta property="og:description" content="linux系统中，实现socket多路复用的技术有select 、poll 、epoll 等多种方式。这些不同方式个有优缺点和适用场景，这不是本文讨论的重点，又兴趣的可以自己搜索学习一下。但是在高并发场景下， epoll 性能是最高的， Nginx 都听说过吧，大名鼎鼎的Nginx 底层用的就是 epoll。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lqxhub.github.io/posts/91655bdf/3622259-cb78a80f112544ea.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/91655bdf/3622259-8fb0e898063f3db7.webp">
+<meta property="og:image" content="https://lqxhub.github.io/posts/91655bdf/3622259-42cda40faa00d188.webp">
+<meta property="article:published_time" content="2021-03-14T05:58:35.000Z">
+<meta property="article:modified_time" content="2024-09-29T01:18:13.198Z">
+<meta property="article:author" content="QX">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="网络">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lqxhub.github.io/posts/91655bdf/3622259-cb78a80f112544ea.webp">
+
+<link rel="canonical" href="https://lqxhub.github.io/posts/91655bdf/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>linux下 C++ 使用 epoll 多路复用 实现高性能的tcpserver | QX 的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="QX 的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">QX 的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">37</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">54</span></a>
+
+  </li>
+        <li class="menu-item menu-item-友链">
+
+    <a href="/links/" rel="section"><i class="fa fa-link fa-fw"></i>友链</a>
+
+  </li>
+        <li class="menu-item menu-item-收藏">
+
+    <a href="/collect/" rel="section"><i class="fa fa-archive fa-fw"></i>收藏</a>
+
+  </li>
+        <li class="menu-item menu-item-工具">
+
+    <a href="/tool/" rel="section"><i class="fa fa-heartbeat fa-fw"></i>工具</a>
+
+  </li>
+        <li class="menu-item menu-item-rss">
+
+    <a href="/atom.xml" rel="section"><i class="fa fa-rss fa-fw"></i>RSS</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/lqxhub" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://lqxhub.github.io/posts/91655bdf/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="QX">
+      <meta itemprop="description" content="QX的笔记">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="QX 的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          linux下 C++ 使用 epoll 多路复用 实现高性能的tcpserver
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-03-14 13:58:35" itemprop="dateCreated datePublished" datetime="2021-03-14T13:58:35+08:00">2021-03-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-09-29 09:18:13" itemprop="dateModified" datetime="2024-09-29T09:18:13+08:00">2024-09-29</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/C/" itemprop="url" rel="index"><span itemprop="name">C++</span></a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>2.6k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>10 分钟</span>
+            </span>
+          
+          
+          
+          
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>linux系统中，实现socket多路复用的技术有<strong>select</strong> 、<strong>poll</strong> 、<strong>epoll</strong> 等多种方式。这些不同方式个有优缺点和适用场景，这不是本文讨论的重点，又兴趣的可以自己搜索学习一下。但是在高并发场景下， <strong>epoll</strong> 性能是最高的， <strong>Nginx</strong> 都听说过吧，大名鼎鼎的<strong>Nginx</strong> 底层用的就是 <strong>epoll</strong>。</p>
+<span id="more"></span>
+
+<p>这篇文章主要是写怎么用 epoll，而不是原理分析。这篇文章不是最全的，也不是最深入的，但是绝对是一篇能让普通人看懂的，看完能自己用epoll写出一个tcpserver的文章。全废话不多说，直接开始搞</p>
+<p>首先明确一点，epoll 是linux系统提供的系统调用，也就说，epoll 在Windows系统上是没法使用的，相应的代码也是没法编译的。如果有人知道怎么在Windows中编译，请赐教。</p>
+<h4 id="工具"><a href="#工具" class="headerlink" title="工具"></a>工具</h4><p>文中使用的开发环境</p>
+<ol>
+<li>系统: <code>Debian GNU/Linux 10 (buster)</code></li>
+<li>linux内核: <code>4.19.0-14</code></li>
+<li>gcc版本: <code>8.3.0</code></li>
+</ol>
+<h4 id="准备知识"><a href="#准备知识" class="headerlink" title="准备知识"></a>准备知识</h4><p>epoll是linux内核提供的功能，这个功能对外提供系统调用，在C&#x2F;C++中通过三个函数对用户提供功能</p>
+<ol>
+<li><p><code>epoll_create(int __size)</code> 创建一个epoll，**_size** 参数在linux2.6内核之后就没有什么作用了, 但是要&gt;0，一般直接填 <strong>1</strong> 就好了。函数返回创建的epoll的文件描述符，如果创建失败，会返回 -1。</p>
+</li>
+<li><p><code>epoll_ctl(nt __epfd, int __op, int __fd,struct epoll_event *__event)</code> 操作已有的epoll,<strong>epfd</strong>epoll的文件描述符；<strong>op</strong>操作方式，有添加、删除、修改等等；**_fd** 要操作对象的描述符，如果是操作tcp连接，也会就是这个连接的描述符。**_event** epoll 的响应事件，当epoll管理的tcp连接有事件发生时，会通过 _event 这个对象传递出来，所以在添加连接时，要把这个连接包装成一个 <strong>epoll_event</strong> 对象 </br></p>
+<ul>
+<li>op 类型</li>
+<li><strong>EPOLL_CTL_ADD</strong> 添加一个描述符</li>
+<li><strong>EPOLL_CTL_DEL</strong> 删除一个描述符</li>
+<li><strong>EPOLL_CTL_MOD</strong> 修改一个描述符</li>
+</ul>
+</li>
+<li><p><code>epoll_wait(int __epfd, struct epoll_event *__events,int __maxevents, int __timeout)</code> 当epoll管理的连接中有响应事件发生时,会回调这个函数。<strong>epfd</strong>epoll的文件描述符；**__events** 可以操作的连接数组；**__maxevents** 一个可以处理的最大事件数量；**__timeout** 超时时间（单位毫秒），如果填-1，会直到有可操作事件发生时才会返回，因为C++不支持函数多返回值，像Go可以直接返回所有事件和数量了 (╥╯^╰╥)。<br></p>
+<p>events 中的常用的类型：<br></p>
+<ul>
+<li>EPOLLIN ：表示对应的文件描述符可以读（SOCKET正常关闭）</li>
+<li>EPOLLOUT：表示对应的文件描述符可以写</li>
+<li>EPOLLPRI：表示对应的文件描述符有紧急的数据可读（表示有带外数据到来）</li>
+<li>EPOLLERR：表示对应的文件描述符发生错误(默认注册)</li>
+<li>EPOLLHUP：表示对应的文件描述符被挂断(默认注册)</li>
+<li>EPOLLET： 将EPOLL设为边缘触发(Edge Triggered)模式，这是相对于水平触发(Level Triggered)来说的</li>
+<li>EPOLLONESHOT：只监听一次事件，当监听完这次事件之后，如果还需要继续监听这个socket的话，需要再次把这个socket加入到EPOLL队列里<br>是不是很惊奇，这么牛逼的epoll就三个函数，第一次看到的时候我也觉得很奇怪，三个函数就能搞定那么复杂的事情。不过想想也是，把复杂的东西简化，才能体现出大神的实力</li>
+</ul>
+</li>
+</ol>
+<h5 id="epoll的两种模式"><a href="#epoll的两种模式" class="headerlink" title="epoll的两种模式"></a>epoll的两种模式</h5><p>epoll 事件有两种模型 <strong>Level Triggered</strong> (LT) 和 <strong>Edge Triggered</strong> (ET)：</br></p>
+<ul>
+<li><p>LT(level triggered，水平触发模式)是默认的工作方式，并且同时支持 block 和 non-block socket。在这种做法中，内核告诉你一个文件描述符是否就绪了，然后你可以对这个就绪的fd进行IO操作。如果你不作任何操作，内核还是会继续通知你的，所以，这种模式编程出错误可能性要小一点。</p>
+</li>
+<li><p>ET(edge-triggered，边缘触发模式)是高速工作方式，只支持no-block socket。在这种模式下，当描述符从未就绪变为就绪时，内核通过epoll告诉你。然后它会假设你知道文件描述符已经就绪，并且不会再为那个文件描述符发送更多的就绪通知，等到下次有新的数据进来的时候才会再次出发就绪事件。</p>
+</li>
+</ul>
+<p>把socket设置为非阻塞模式的方法</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> flags = <span class="built_in">fcntl</span>(fd, F_GETFL, <span class="number">0</span>);</span><br><span class="line"><span class="built_in">fcntl</span>(fd, F_SETFL, flags | O_NONBLOCK);</span><br></pre></td></tr></table></figure>
+<p>需要的头文件 <code>#include &lt;fcntl.h&gt;</code></p>
+<h4 id="epoll原理"><a href="#epoll原理" class="headerlink" title="epoll原理"></a>epoll原理</h4><p>简单通过画图解释一下epoll的工作原理<br><img src="/posts/91655bdf/3622259-cb78a80f112544ea.webp"></p>
+<p>这里没有涉及太底层的东西，因为太底层的我也没研究过，不敢乱讲。知之为知之，不知为不知。</br><br>epoll可以看做是一个由操作系统提供的容器，这个容器管理了一些 <strong>epoll_event</strong> （图中我画成单向链表了，实际上用的是红黑树，因为画树太麻烦了），这个event是我们添加进去的，event中设置了要响应的事件类型，当epoll 检测到具体的 event 有对应的事件发生时，会通过<strong>epoll_wait()</strong> 通知。</p>
+<h4 id="简单的epoll实现"><a href="#简单的epoll实现" class="headerlink" title="简单的epoll实现"></a>简单的epoll实现</h4><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span><span class="comment">//控制台输出</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/socket.h&gt;</span><span class="comment">//创建socket</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;netinet/in.h&gt;</span><span class="comment">//socket addr</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/epoll.h&gt;</span><span class="comment">//epoll</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;unistd.h&gt;</span><span class="comment">//close函数</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;fcntl.h&gt;</span><span class="comment">//设置非阻塞</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="type">const</span> <span class="type">int</span> EVENTS_SIZE = <span class="number">20</span>;</span><br><span class="line">    <span class="comment">//读socket的数组</span></span><br><span class="line">    <span class="type">char</span> buff[<span class="number">1024</span>];</span><br><span class="line"></span><br><span class="line">    <span class="comment">//创建一个tcp socket</span></span><br><span class="line">    <span class="type">int</span> socketFd = <span class="built_in">socket</span>(AF_INET, SOCK_STREAM, IPPROTO_TCP);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//设置socket监听的地址和端口</span></span><br><span class="line">    sockaddr_in sockAddr&#123;&#125;;</span><br><span class="line">    sockAddr.sin_port = <span class="built_in">htons</span>(<span class="number">8088</span>);</span><br><span class="line">    sockAddr.sin_family = AF_INET;</span><br><span class="line">    sockAddr.sin_addr.s_addr = <span class="built_in">htons</span>(INADDR_ANY);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//将socket和地址绑定</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">bind</span>(socketFd, (sockaddr *) &amp;sockAddr, <span class="built_in">sizeof</span>(sockAddr)) == <span class="number">-1</span>) &#123;</span><br><span class="line">        cout &lt;&lt; <span class="string">&quot;bind error&quot;</span> &lt;&lt; endl;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//开始监听socket,当调用listen之后,</span></span><br><span class="line">    <span class="comment">//进程就可以调用accept来接受一个外来的请求</span></span><br><span class="line">    <span class="comment">//第二个参数,请求队列的长度</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">listen</span>(socketFd, <span class="number">10</span>) == <span class="number">-1</span>) &#123;</span><br><span class="line">        cout &lt;&lt; <span class="string">&quot;listen error&quot;</span> &lt;&lt; endl;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//创建一个epoll,size已经不起作用了,一般填1就好了</span></span><br><span class="line">    <span class="type">int</span> eFd = <span class="built_in">epoll_create</span>(<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//把socket包装成一个epoll_event对象</span></span><br><span class="line">    <span class="comment">//并添加到epoll中</span></span><br><span class="line">    epoll_event epev&#123;&#125;;</span><br><span class="line">    epev.events = EPOLLIN;<span class="comment">//可以响应的事件,这里只响应可读就可以了</span></span><br><span class="line">    epev.data.fd = socketFd;<span class="comment">//socket的文件描述符</span></span><br><span class="line">    <span class="built_in">epoll_ctl</span>(eFd, EPOLL_CTL_ADD, socketFd, &amp;epev);<span class="comment">//添加到epoll中</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">//回调事件的数组,当epoll中有响应事件时,通过这个数组返回</span></span><br><span class="line">    epoll_event events[EVENTS_SIZE];</span><br><span class="line"></span><br><span class="line">    <span class="comment">//整个epoll_wait 处理都要在一个死循环中处理</span></span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="comment">//这个函数会阻塞,直到超时或者有响应事件发生</span></span><br><span class="line">        <span class="type">int</span> eNum = <span class="built_in">epoll_wait</span>(eFd, events, EVENTS_SIZE, <span class="number">-1</span>);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (eNum == <span class="number">-1</span>) &#123;</span><br><span class="line">            cout &lt;&lt; <span class="string">&quot;epoll_wait&quot;</span> &lt;&lt; endl;</span><br><span class="line">            <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//遍历所有的事件</span></span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; eNum; i++) &#123;</span><br><span class="line">            <span class="comment">//判断这次是不是socket可读(是不是有新的连接)</span></span><br><span class="line">            <span class="keyword">if</span> (events[i].data.fd == socketFd) &#123;</span><br><span class="line">                <span class="keyword">if</span> (events[i].events &amp; EPOLLIN) &#123;</span><br><span class="line">                    sockaddr_in cli_addr&#123;&#125;;</span><br><span class="line">                    <span class="type">socklen_t</span> length = <span class="built_in">sizeof</span>(cli_addr);</span><br><span class="line">                    <span class="comment">//接受来自socket连接</span></span><br><span class="line">                    <span class="type">int</span> fd = <span class="built_in">accept</span>(socketFd, (sockaddr *) &amp;cli_addr, &amp;length);</span><br><span class="line">                    <span class="keyword">if</span> (fd &gt; <span class="number">0</span>) &#123;</span><br><span class="line">                        <span class="comment">//设置响应事件,设置可读和边缘(ET)模式</span></span><br><span class="line">                        <span class="comment">//很多人会把可写事件(EPOLLOUT)也注册了,后面会解释</span></span><br><span class="line">                        epev.events = EPOLLIN | EPOLLET;</span><br><span class="line">                        epev.data.fd = fd;</span><br><span class="line">                        <span class="comment">//设置连接为非阻塞模式</span></span><br><span class="line">                        <span class="type">int</span> flags = <span class="built_in">fcntl</span>(fd, F_GETFL, <span class="number">0</span>);</span><br><span class="line">                        <span class="keyword">if</span> (flags &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                            cout &lt;&lt; <span class="string">&quot;set no block error, fd:&quot;</span> &lt;&lt; fd &lt;&lt; endl;</span><br><span class="line">                            <span class="keyword">continue</span>;</span><br><span class="line">                        &#125;</span><br><span class="line">                        <span class="keyword">if</span> (<span class="built_in">fcntl</span>(fd, F_SETFL, flags | O_NONBLOCK) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                            cout &lt;&lt; <span class="string">&quot;set no block error, fd:&quot;</span> &lt;&lt; fd &lt;&lt; endl;</span><br><span class="line">                            <span class="keyword">continue</span>;</span><br><span class="line">                        &#125;</span><br><span class="line">                        <span class="comment">//将新的连接添加到epoll中</span></span><br><span class="line">                        <span class="built_in">epoll_ctl</span>(eFd, EPOLL_CTL_ADD, fd, &amp;epev);</span><br><span class="line">                        cout &lt;&lt; <span class="string">&quot;client on line fd:&quot;</span> &lt;&lt; fd &lt;&lt; endl;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;<span class="comment">//不是socket的响应事件</span></span><br><span class="line">                </span><br><span class="line">                <span class="comment">//判断是不是断开和连接出错</span></span><br><span class="line">                <span class="comment">//因为连接断开和出错时,也会响应`EPOLLIN`事件</span></span><br><span class="line">                <span class="keyword">if</span> (events[i].events &amp; EPOLLERR || events[i].events &amp; EPOLLHUP) &#123;</span><br><span class="line">                    <span class="comment">//出错时,从epoll中删除对应的连接</span></span><br><span class="line">                    <span class="comment">//第一个是要操作的epoll的描述符</span></span><br><span class="line">                    <span class="comment">//因为是删除,所有event参数天null就可以了</span></span><br><span class="line">                    <span class="built_in">epoll_ctl</span>(eFd, EPOLL_CTL_DEL, events[i].data.fd, <span class="literal">nullptr</span>);</span><br><span class="line">                    cout &lt;&lt; <span class="string">&quot;client out fd:&quot;</span> &lt;&lt; events[i].data.fd &lt;&lt; endl;</span><br><span class="line">                    <span class="built_in">close</span>(events[i].data.fd);</span><br><span class="line">                &#125; <span class="keyword">else</span> <span class="keyword">if</span> (events[i].events &amp; EPOLLIN) &#123;<span class="comment">//如果是可读事件</span></span><br><span class="line">                    </span><br><span class="line">                    <span class="comment">//如果在windows中,读socket中的数据要用recv()函数</span></span><br><span class="line">                    <span class="type">int</span> len = <span class="built_in">read</span>(events[i].data.fd, buff, <span class="built_in">sizeof</span>(buff));</span><br><span class="line">                    <span class="comment">//如果读取数据出错,关闭并从epoll中删除连接</span></span><br><span class="line">                    <span class="keyword">if</span> (len == <span class="number">-1</span>) &#123;</span><br><span class="line">                        <span class="built_in">epoll_ctl</span>(eFd, EPOLL_CTL_DEL, events[i].data.fd, <span class="literal">nullptr</span>);</span><br><span class="line">                        cout &lt;&lt; <span class="string">&quot;client out fd:&quot;</span> &lt;&lt; events[i].data.fd &lt;&lt; endl;</span><br><span class="line">                        <span class="built_in">close</span>(events[i].data.fd);</span><br><span class="line">                    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                        <span class="comment">//正常读取,打印读到的数据</span></span><br><span class="line">                        cout &lt;&lt; buff &lt;&lt; endl;</span><br><span class="line">                        </span><br><span class="line">                        <span class="comment">//向客户端发数据</span></span><br><span class="line">                        <span class="type">char</span> a[] = <span class="string">&quot;123456&quot;</span>;</span><br><span class="line">                        <span class="comment">//如果在windows中,向socket中写数据要用send()函数</span></span><br><span class="line">                        <span class="built_in">write</span>(events[i].data.fd, a, <span class="built_in">sizeof</span>(a));</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>常见的问题和注意事项在注释中，就单解释一下新连接注册事件的问题吧，很多文章中都会把可写事件也注册进去，像这样</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">sockaddr_in cli_addr&#123;&#125;;</span><br><span class="line"><span class="type">socklen_t</span> length = <span class="built_in">sizeof</span>(cli_addr);</span><br><span class="line"><span class="comment">//接受来自socket连接</span></span><br><span class="line"><span class="type">int</span> fd = <span class="built_in">accept</span>(socketFd, (sockaddr *) &amp;cli_addr, &amp;length);</span><br><span class="line"><span class="keyword">if</span> (fd &gt; <span class="number">0</span>) &#123;</span><br><span class="line">    epev.events = EPOLLIN | EPOLLET | EPOLLOUT;</span><br><span class="line">    epev.data.fd = fd;</span><br><span class="line">    <span class="built_in">epoll_ctl</span>(eFd, EPOLL_CTL_ADD, fd, &amp;epev);</span><br><span class="line">    cout &lt;&lt; <span class="string">&quot;client on line fd:&quot;</span> &lt;&lt; fd &lt;&lt; endl;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>但是经过测试，不注册可写事件，直接往socket中写也是可以的<br><br>经过查资料得知:<br></p>
+<ul>
+<li><strong>EPOLLIN</strong> : 如果状态改变了(比如 从无到有)，只要输入缓冲区可读就会触发</li>
+<li><strong>EPOLLOUT</strong> : 如果状态改变了(比如 从满到不满)，只要输出缓冲区可写就会触<br>如果把可写也注册上，会频繁回调，这里会有很多无用的回调，导致性能下降。<br>有一种思路，当向socket写失败后（write函数返回值 &#x3D;&#x3D; -1），注册上 <strong>EPOLLOUT</strong> 当响应了可写事件后，重新往socket中写数据，写成功后，再取消掉 <strong>EPOLLOUT</strong>。 这里就不给出示例了</li>
+</ul>
+<h4 id="客户端测试"><a href="#客户端测试" class="headerlink" title="客户端测试"></a>客户端测试</h4><p>这次关注的是服务端实现，客户端就不用C++写了，用Go写了一个client（没别的原因，只是因为Go写起了简单）</p>
+<pre><code class="go">package main
+
+import (
+    &quot;fmt&quot;
+    &quot;net&quot;
+    &quot;sync&quot;
+    &quot;time&quot;
+)
+
+const (
+    MAX_CONN = 10
+)
+
+func main() &#123;
+    var wg sync.WaitGroup
+    wg.Add(1)
+    for i := 0; i &lt; MAX_CONN; i++ &#123;
+        go Conn(&quot;192.168.199.164:8088&quot;, i)
+        time.Sleep(time.Millisecond * 100)
+    &#125;
+    wg.Wait()
+&#125;
+
+func Conn(addr string, id int) &#123;
+    conn, err := net.Dial(&quot;tcp&quot;, addr)
+    if err != nil &#123;
+        fmt.Println(err)
+        return
+    &#125;
+    fmt.Println(&quot;connect &quot;, id)
+    go func() &#123;
+        buf := make([]byte, 1024)
+        for &#123;
+            n, err := conn.Read(buf)
+            if err != nil &#123;
+                break
+            &#125;
+            fmt.Println(id, &quot;read: &quot;, string(buf[:n]))
+        &#125;
+    &#125;()
+    time.Sleep(time.Second * 1)
+    for &#123;
+        _, err := conn.Write([]byte(&quot;hello&quot;))
+        if err != nil &#123;
+            break
+        &#125;
+        time.Sleep(time.Second * 10)
+    &#125;
+&#125;
+</code></pre>
+<p>这只是一个测试用的，写的很粗糙，但是不影响使用</p>
+<p>服务端打印信息<br><img src="/posts/91655bdf/3622259-8fb0e898063f3db7.webp" alt="服务端"></p>
+<p>客户端打印信息<br><img src="/posts/91655bdf/3622259-42cda40faa00d188.webp" alt="客户端"></p>
+<h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><ol>
+<li>epoll是socket多路复用技术的一种，还有select和poll</li>
+<li>epoll 只能在linux使用(Windows下怎么用我没找到,如果说错了请指正)</li>
+<li>epoll 事件有 Level Triggered (LT) 和 Edge Triggered (ET) 两种模型，LT是默认模式，ET是高性能模式</li>
+</ol>
+<p>另外，我使用面向对象的方式封装了一个epoll的tcpserver  代码有点多，就不贴在这了，已经上传<br><a target="_blank" rel="noopener" href="https://github.com/lqxhub/epoll_server">github</a><br><a target="_blank" rel="noopener" href="https://gitee.com/lqxlucky/epoll_server">码云</a></p>
+<p>欢迎给点个star     ヾ(o◕∀◕)ﾉヾ</p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>QX
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://lqxhub.github.io/posts/91655bdf/" title="linux下 C++ 使用 epoll 多路复用 实现高性能的tcpserver">https://lqxhub.github.io/posts/91655bdf/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+  <li class="post-copyright-license">
+    <strong>暂时还懒得去弄评论区，有问题欢迎 <a href="mailto:lqxlucky@qq.com" title="lqxlucky@qq.com" rel="noopener" target="_blank">邮件</a> 交流</strong>
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/C/" rel="tag"><i class="fa fa-tag"></i> C++</a>
+              <a href="/tags/linux/" rel="tag"><i class="fa fa-tag"></i> linux</a>
+              <a href="/tags/%E7%BD%91%E7%BB%9C/" rel="tag"><i class="fa fa-tag"></i> 网络</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/24bc8405/" rel="prev" title="go 使用 pprof 排查内存泄露">
+      <i class="fa fa-chevron-left"></i> go 使用 pprof 排查内存泄露
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/posts/4926d2f3/" rel="next" title="linux 多线程或多进程 epoll处理 accept 导致惊群">
+      linux 多线程或多进程 epoll处理 accept 导致惊群 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <!--关于我页面去掉左边栏-->
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%B7%A5%E5%85%B7"><span class="nav-number">1.</span> <span class="nav-text">工具</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%87%86%E5%A4%87%E7%9F%A5%E8%AF%86"><span class="nav-number">2.</span> <span class="nav-text">准备知识</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#epoll%E7%9A%84%E4%B8%A4%E7%A7%8D%E6%A8%A1%E5%BC%8F"><span class="nav-number">2.1.</span> <span class="nav-text">epoll的两种模式</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#epoll%E5%8E%9F%E7%90%86"><span class="nav-number">3.</span> <span class="nav-text">epoll原理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%AE%80%E5%8D%95%E7%9A%84epoll%E5%AE%9E%E7%8E%B0"><span class="nav-number">4.</span> <span class="nav-text">简单的epoll实现</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%B5%8B%E8%AF%95"><span class="nav-number">5.</span> <span class="nav-text">客户端测试</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="QX"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">QX</p>
+  <div class="site-description" itemprop="description">QX的笔记</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">54</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">37</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/lqxhub" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;lqxhub" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:lqxlucky@qq.com" title="E-Mail → mailto:lqxlucky@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">QX</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    <span title="站点总字数">87k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    <span title="站点阅读时长">5:15</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="//cdn.jsdelivr.net/gh/theme-next/theme-next-canvas-nest@1/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
