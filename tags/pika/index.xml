@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Pika on QX 的笔记</title><link>https://lqxhub.github.io/tags/pika/</link><description>Recent content in Pika on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 12 Feb 2022 14:28:10 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/pika/index.xml" rel="self" type="application/rss+xml"/><item><title>pika编译笔记</title><link>https://lqxhub.github.io/posts/d9a4c4a4/</link><pubDate>Sat, 12 Feb 2022 14:28:10 +0000</pubDate><guid>https://lqxhub.github.io/posts/d9a4c4a4/</guid><description>&lt;p>&lt;strong>pika&lt;/strong> 是啥懂得都懂，如果你不知道，这篇文章对你也没有任何帮助&lt;/p>
+&lt;p>这篇文章已经同步到 pika 的 github中&lt;/p>
+&lt;p>&lt;a class="link" href="https://github.com/OpenAtomFoundation/pika/issues/1148" target="_blank" rel="noopener"
+>pika issue&lt;/a>&lt;/p>
+&lt;h3 id="编译-pika">&lt;a href="#%e7%bc%96%e8%af%91-pika" class="header-anchor">&lt;/a>编译 pika
+&lt;/h3>&lt;h2 id="0-准备">&lt;a href="#0-%e5%87%86%e5%a4%87" class="header-anchor">&lt;/a>0 准备
+&lt;/h2>&lt;p>需要软件 &lt;strong>centos7.x&lt;/strong> &lt;strong>gcc4.8&lt;/strong> &lt;strong>g++4.8&lt;/strong> &lt;strong>git&lt;/strong> &lt;strong>cmake&lt;/strong>
+最好用centos7系列, 在别的系统中编译可能会报错, 人生苦短, 别和自己过不去&lt;/p>
+&lt;p>使用make 编译的时候, 使用 make -jN &lt;em>(N=cpu核数 加快编译速度)&lt;/em>&lt;/p>
+&lt;hr>
+&lt;h2 id="1-安装工具">&lt;a href="#1-%e5%ae%89%e8%a3%85%e5%b7%a5%e5%85%b7" class="header-anchor">&lt;/a>1 安装工具
+&lt;/h2>&lt;ol>
+&lt;li>
+&lt;p>gcc g++ git 一般用 yum 安装&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>安装cmake&lt;/p>
+&lt;p>cmake 源码 &lt;a class="link" href="https://cmake.org/download/" target="_blank" rel="noopener"
+>https://cmake.org/download/&lt;/a>&lt;/p>
+&lt;p>cmake依赖 openssl-devel 先用yum安装 openssl-devel
+&lt;code>yum install openssl openssl-devel&lt;/code>&lt;/p>
+&lt;p>编译安装cmake&lt;/p>
+&lt;p>解压cmake源码&lt;/p>
+&lt;p>&lt;code>./bootstrap&lt;/code>&lt;/p>
+&lt;p>&lt;code>make &amp;amp;&amp;amp; make install&lt;/code>&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;hr>
+&lt;h2 id="2-解决rocksdb依赖安装必备的库">&lt;a href="#2-%e8%a7%a3%e5%86%b3rocksdb%e4%be%9d%e8%b5%96%e5%ae%89%e8%a3%85%e5%bf%85%e5%a4%87%e7%9a%84%e5%ba%93" class="header-anchor">&lt;/a>2 解决rocksdb依赖,安装必备的库
+&lt;/h2>&lt;h2 id="rocksdb-依赖库">&lt;a href="#rocksdb-%e4%be%9d%e8%b5%96%e5%ba%93" class="header-anchor">&lt;/a>rocksdb 依赖库
+&lt;/h2>&lt;p>snappy gflags zlib bzip2 stdc++ lz4 zstd lzma 这些库都要安装 为了能静态编译,这些库都要安装静态库&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>编译snappy&lt;/p>
+&lt;p>&lt;code>mkdir build &amp;amp;&amp;amp; cd build&lt;/code>&lt;/p>
+&lt;p>编译 动态库
+&lt;code>cmake -DSNAPPY_BUILD_BENCHMARKS=OFF -DSNAPPY_BUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON ..&lt;/code>&lt;/p>
+&lt;p>&lt;code>make &amp;amp;&amp;amp; make install&lt;/code>&lt;/p>
+&lt;p>编译 静态库
+&lt;code>cmake -DSNAPPY_BUILD_BENCHMARKS=OFF -DSNAPPY_BUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF ..&lt;/code>&lt;/p>
+&lt;p>&lt;code>make &amp;amp;&amp;amp; make install&lt;/code>&lt;/p>
+&lt;p>我没有找到同时编译动态库和静态库的方法，只能分开编译了&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>编译gflags&lt;/p>
+&lt;p>&lt;code>./configure&lt;/code>&lt;/p>
+&lt;p>&lt;code>make &amp;amp;&amp;amp; make install&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>编译zlib&lt;/p>
+&lt;p>&lt;code>./configure&lt;/code>&lt;/p>
+&lt;p>&lt;code>make &amp;amp;&amp;amp; make install&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>bzip2 一般linux都自带, 没有的用 yum 安装一个&lt;/p>
+&lt;p>&lt;code>yum install bzip2-devel bzip2-libs&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>stdc++ 这个库需要安装静态库,直接 yum 安装&lt;/p>
+&lt;p>&lt;code>yum install libstdc++ libstdc++-devel libstdc++-static&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>安装lz4&lt;/p>
+&lt;p>解压,进入 源码目录&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>cd build/cmake
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>mkdir build &amp;amp;&amp;amp; build
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>cmake -DBUILD_STATIC_LIBS=ON -DLZ4_BUILD_CLI=OFF -DLZ4_BUILD_LEGACY_LZ4C=OFF CMAKE_BUILD_TYPE=Relase -D LZ4_POSITION_INDEPENDENT_LIB=OFF ..
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span>make &amp;amp;&amp;amp; make install
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>
+&lt;p>安装 zstd&lt;/p>
+&lt;p>解压源码&lt;/p>
+&lt;p>&lt;code>cd build/cmake/lib&lt;/code>&lt;/p>
+&lt;p>&lt;code>make &amp;amp;&amp;amp; make install&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>安装lzma&lt;/p>
+&lt;p>解压源码 xz压缩包&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>./configure --disable-xz --disable-xzdec --disable-lzmadec --disable-lzmainfo --disable-lzma-links --disable-scripts --disable-doc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>make &amp;amp;&amp;amp; make install
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;/ol>
+&lt;p>最后, 所有的库都安装好后,把库加到 ld 目录中。因为有的库会安装到 &lt;strong>/usr/local/lib64&lt;/strong> 目录下，但是有的系统没有把这个目录加到动态库搜索目录中,&lt;/p>
+&lt;p>解决办法&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">echo&lt;/span> &lt;span style="color:#f1fa8c">&amp;#34;/usr/local/lib64&amp;#34;&lt;/span> &amp;gt;&amp;gt; /etc/ld.so.conf.d/usr.local.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">echo&lt;/span> &lt;span style="color:#f1fa8c">&amp;#34;/usr/local/lib&amp;#34;&lt;/span> &amp;gt;&amp;gt; /etc/ld.so.conf.d/usr.local.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>执行 &lt;code>ldconfig&lt;/code>&lt;/p>
+&lt;hr>
+&lt;h2 id="安装-protobuf">&lt;a href="#%e5%ae%89%e8%a3%85-protobuf" class="header-anchor">&lt;/a>安装 protobuf
+&lt;/h2>&lt;p>编译 protobuf, 用cmake编译 protobuf release 地址 &lt;a class="link" href="https://github.com/protocolbuffers/protobuf/releases" target="_blank" rel="noopener"
+>https://github.com/protocolbuffers/protobuf/releases&lt;/a>
+下载 protobuf-cpp-XX.XX.XX.tar.gz&lt;/p>
+&lt;p>&lt;em>xx.XX.XX 是版本号&lt;/em>，&lt;strong>需要下载3.X版本的&lt;/strong>&lt;/p>
+&lt;p>&lt;code>./configure&lt;/code>&lt;/p>
+&lt;p>&lt;code>make &amp;amp;&amp;amp; make install&lt;/code>&lt;/p>
+&lt;p>protobuf 也要安装静态库&lt;/p>
+&lt;p>到这 protobuf 安装完成&lt;/p>
+&lt;hr>
+&lt;h2 id="3--拉代码">&lt;a href="#3--%e6%8b%89%e4%bb%a3%e7%a0%81" class="header-anchor">&lt;/a>3 拉代码
+&lt;/h2>&lt;p>拉 pika 代码 github &lt;a class="link" href="https://github.com/OpenAtomFoundation/pika" target="_blank" rel="noopener"
+>https://github.com/OpenAtomFoundation/pika&lt;/a>
+这里最好通过代理去拉代码,要不然 速度感人&lt;/p>
+&lt;ol>
+&lt;li>git 设置代理&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>git config --global https.proxy http://127.0.0.1:1080
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>git config --global https.proxy https://127.0.0.1:1080
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>git config --global --unset http.proxy
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span>git config --global --unset https.proxy
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ol start="2">
+&lt;li>拉取 依赖库代码&lt;/li>
+&lt;/ol>
+&lt;p>cd pika 源码目录&lt;/p>
+&lt;p>&lt;code>git submodule init&lt;/code>
+&lt;code>git submodule update&lt;/code>&lt;/p>
+&lt;hr>
+&lt;h2 id="4-编译">&lt;a href="#4-%e7%bc%96%e8%af%91" class="header-anchor">&lt;/a>4 编译
+&lt;/h2>&lt;h2 id="预先编译">&lt;a href="#%e9%a2%84%e5%85%88%e7%bc%96%e8%af%91" class="header-anchor">&lt;/a>预先编译
+&lt;/h2>&lt;p>预先编译一次 &lt;strong>glog&lt;/strong> 和 &lt;strong>rocksdb&lt;/strong>, 因为这两个库直接用 pika 的 MakeFile 编译容易出问题,先预编译一下&lt;/p>
+&lt;ol>
+&lt;li>先特殊编译一下glog库&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">cd&lt;/span> /third/glog
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>./configu
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>make &lt;span style="color:#ff79c6">&amp;amp;&amp;amp;&lt;/span> make install
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ol start="2">
+&lt;li>编译rocksdb&lt;/li>
+&lt;/ol>
+&lt;p>rocksdb编译完不需要安装，只需要复制一下静态库就好&lt;/p>
+&lt;p>使用cmake构建&lt;/p>
+&lt;p>cmake 需要 cmake3, cmake命令如下&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>cmake笔记3 -DWITH_BZ2&lt;span style="color:#ff79c6">=&lt;/span>ON -DWITH_MD_LIBRARY&lt;span style="color:#ff79c6">=&lt;/span>OFF -DWITH_SNAPPY&lt;span style="color:#ff79c6">=&lt;/span>ON -DWITH_ZLIB&lt;span style="color:#ff79c6">=&lt;/span>ON -DWITH_ZSTD&lt;span style="color:#ff79c6">=&lt;/span>ON -DWITH_TOOLS&lt;span style="color:#ff79c6">=&lt;/span>OFF -DWITH_TESTS&lt;span style="color:#ff79c6">=&lt;/span>OFF -DCMAKE_BUILD_TYPE&lt;span style="color:#ff79c6">=&lt;/span>Release ..
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>make -jN
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>把编译后的 &lt;strong>librocksdb.a&lt;/strong> 复制到 &lt;strong>rocksdb&lt;/strong> 的根目录&lt;/p>
+&lt;h2 id="正常编译">&lt;a href="#%e6%ad%a3%e5%b8%b8%e7%bc%96%e8%af%91" class="header-anchor">&lt;/a>正常编译
+&lt;/h2>&lt;p>按照官方给的文档编译即可,&lt;/p>
+&lt;p>执行 &lt;code>make&lt;/code>&lt;/p>
+&lt;p>等待拉各个依赖模块的代码 然后自动编译&lt;/p>
+&lt;p>前期工作做好,编译中应该不会出错&lt;/p>
+&lt;p>检查编译是否正确&lt;/p>
+&lt;h2 id="后续">&lt;a href="#%e5%90%8e%e7%bb%ad" class="header-anchor">&lt;/a>后续
+&lt;/h2>&lt;p>编译完成后,这个可执行文件有很多 .so的依赖, 可移植比较差, 通过 脚本编译一个依赖较少的.so文件&lt;/p>
+&lt;p>执行 &lt;strong>link_3_3_path-master.sh&lt;/strong> 脚本等待完成链接&lt;/p>
+&lt;hr>
+&lt;h2 id="编译完成">&lt;a href="#%e7%bc%96%e8%af%91%e5%ae%8c%e6%88%90" class="header-anchor">&lt;/a>编译完成
+&lt;/h2>&lt;ol>
+&lt;li>
+&lt;p>正常编译&lt;/p>
+&lt;p>到 &lt;strong>output/bin/&lt;/strong> 目录中, 执行 &lt;code>ldd pika&lt;/code> 如果没有 notfind 的依赖库 说明编译完成了&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>静态链接
+&lt;strong>output/bin/&lt;/strong> 目录中的是正常编译的, &lt;strong>link_3_3_path-master.sh&lt;/strong> 同级目录下的是静态链接的&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h2 id="静态链接脚本">&lt;a href="#%e9%9d%99%e6%80%81%e9%93%be%e6%8e%a5%e8%84%9a%e6%9c%ac" class="header-anchor">&lt;/a>静态链接脚本
+&lt;/h2>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">#!/usr/bin/sh
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>&lt;span style="color:#ff79c6">&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#ff79c6">=&lt;/span>/root
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">dependence_path&lt;/span>&lt;span style="color:#ff79c6">=&lt;/span>/root/pika_static
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span>g++ &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/build_version.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_stable_log.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_consensus.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_slave_node.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_statistic.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_client_processor.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_admin.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_binlog.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_bit.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_proxy.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_proxy_cli.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_proxy_conn.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_client_conn.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_command.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_pubsub.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_conf.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_dispatch_thread.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_hash.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_hyperloglog.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_kv.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_list.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_monitor_thread.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_server.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_set.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_geo.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_geohash.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_geohash_helper.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_binlog_transverter.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_binlog_reader.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_partition.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_repl_bgworker.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_repl_client.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_repl_client_conn.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_repl_client_thread.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_repl_server.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_repl_server_conn.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_repl_server_thread.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_cmd_table_manager.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_auxiliary_thread.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_rm.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_table.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_rsync_service.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_inner_message.pb.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_slot.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">50&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_data_distribution.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">51&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_meta.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">52&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_cluster.o &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">53&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/third/slash/slash/lib/libslash.a &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">54&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/third/pink/pink/lib/libpink.a &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">55&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/third/blackwidow/lib/libblackwidow.a &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">56&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/third/rocksdb/librocksdb.a &lt;span style="color:#f1fa8c">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">57&lt;/span>&lt;span>&lt;span style="color:#f1fa8c">&lt;/span> &lt;span style="color:#f1fa8c">${&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">source_path&lt;/span>&lt;span style="color:#f1fa8c">}&lt;/span>/pika/src/pika_zset.o -static-libstdc++ -Wl,-Bstatic -lprotobuf -llz4 -lzstd -llz4 -lglog -lgflags -llzma -lsnappy -Wl,-Bdynamic -lpthread -lrt -lz -lbz2 -Wl,--dynamic-linker&lt;span style="color:#ff79c6">=&lt;/span>/lib64/ld-linux-x86-64.so.2 -o pika
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>-Wl,-Bstatic&lt;/strong> 后面的是要 &lt;strong>静态链接&lt;/strong> 的库&lt;/p>
+&lt;p>&lt;strong>-Wl,-Bdynamic&lt;/strong> 后面的是要 &lt;strong>动态链&lt;/strong> 接的库&lt;/p></description></item></channel></rss>
