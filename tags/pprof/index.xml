@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Pprof on QX 的笔记</title><link>https://lqxhub.github.io/tags/pprof/</link><description>Recent content in Pprof on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 14 Mar 2021 13:58:27 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/pprof/index.xml" rel="self" type="application/rss+xml"/><item><title>go 使用 pprof 排查内存泄露</title><link>https://lqxhub.github.io/posts/24bc8405/</link><pubDate>Sun, 14 Mar 2021 13:58:27 +0000</pubDate><guid>https://lqxhub.github.io/posts/24bc8405/</guid><description>&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/118dbbd1af54c33c82bdbd4d3297a9709b550205.jpg" alt="Featured image of post go 使用 pprof 排查内存泄露" />&lt;p>go 是自带gc的语言，会自动管理内存，不用像C/C++那样，需要程序员手动释放内存，不用手动管理内存，就能少掉很多头发&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4f43c913680427e5.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4f43c913680427e5.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>go的GC会自动管理内存，但是这不代表go程序就不会内存泄露了。 go常见产生内存泄露的原因就是&lt;code>goroutine&lt;/code>没有结束，简单说就是goroutine 被阻塞了，这样就会导致goroutine引用的内存不被GC回收，也就导致了内存泄露。
+当然产生内存泄露的原因还有别的，只是暂时我还没有遇到。不管什么原因产生的内存泄露，最终都是因为异常的引用，导致该被回收的内存没有被gc 回收掉&lt;/p>
+&lt;h2 id="起因">&lt;a href="#%e8%b5%b7%e5%9b%a0" class="header-anchor">&lt;/a>起因
+&lt;/h2>&lt;p>说起go内存泄露分析，还要从年前的一次程序压测说起。我用一个测试程序压测我们游戏的一些数据，大约开了3000个tcp连接到游戏。游戏数据没有问题，但是当测试结束后，发现游戏的Gateway内存占用一直没有下降。本能的让我想起了是不是内存泄露了。马上用pprof分析了一下内存，发现果然是内存泄露了。&lt;/p>
+&lt;p>因为时公司代码，不方便拿出了分析，大体说一下原因吧&lt;/p>
+&lt;p>Gateway是一个读写分离的tcp服务，也就是每一个连接都要有两个goroutine，一个读，一个写。&lt;/p>
+&lt;p>但是当tcp连接断开时，因为时序问题，导致goroutine阻塞了，一直没有结束，就是导致了相关联的内存没有释放。&lt;/p>
+&lt;p>因为时公司代码，不能随便贴出来，这次就自己写个简单的demo模拟一下吧&lt;/p>
+&lt;p>因为go 自带的pprof 只能展示文字，不太明显，所有先安装一个可视化插件 &lt;strong>graphviz&lt;/strong> &lt;a class="link" href="https://www.graphviz.org/download/" target="_blank" rel="noopener"
+>传送门&lt;/a>
+linux上可以直接通过 &lt;code>apt&lt;/code> 或者 &lt;code>yum&lt;/code> 安装就行了。
+windows上去网站下一个就好了，我下载 &lt;code>.msi&lt;/code> 格式的安装后不能用，重新下了一个 压缩包，解压后把 &lt;code>bin&lt;/code> 目录配置到环境变量的 &lt;code>path&lt;/code> 中就可以使用了&lt;/p>
+&lt;h2 id="开始">&lt;a href="#%e5%bc%80%e5%a7%8b" class="header-anchor">&lt;/a>开始
+&lt;/h2>&lt;p>写一个简单的demo 模拟一下内存泄露&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;math/rand&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> _ &lt;span style="color:#f1fa8c">&amp;#34;net/http/pprof&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;sync&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> &lt;span style="color:#ff79c6">go&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">func&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> http.&lt;span style="color:#50fa7b">ListenAndServe&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;0.0.0.0:8090&amp;#34;&lt;/span>, &lt;span style="color:#ff79c6">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> }()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> c &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">make&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">chan&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">struct&lt;/span>{})
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">var&lt;/span> wg sync.WaitGroup
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> wg.&lt;span style="color:#50fa7b">Add&lt;/span>(&lt;span style="color:#bd93f9">1&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> i &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span>; i &amp;lt; &lt;span style="color:#bd93f9">10000&lt;/span>; i&lt;span style="color:#ff79c6">++&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> &lt;span style="color:#ff79c6">go&lt;/span> &lt;span style="color:#50fa7b">one&lt;/span>(c)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> wg.&lt;span style="color:#50fa7b">Wait&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">one&lt;/span>(c &lt;span style="color:#8be9fd;font-style:italic">chan&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">struct&lt;/span>{}) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">var&lt;/span> a []&lt;span style="color:#8be9fd">int64&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> i &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span>; i &amp;lt; &lt;span style="color:#bd93f9">10000&lt;/span>; i&lt;span style="color:#ff79c6">++&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span> a = &lt;span style="color:#8be9fd;font-style:italic">append&lt;/span>(a, rand.&lt;span style="color:#50fa7b">Int63&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span> &lt;span style="color:#ff79c6">&amp;lt;-&lt;/span>c
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>程序很简单，在 for 循环中开启 1000 个协程，每个协程中往切片中append 1000个数据。
+用一个channel模拟协程阻塞，这样就会导致goroutine不会结束。&lt;/p>
+&lt;h3 id="使用go再带的pprof查看">&lt;a href="#%e4%bd%bf%e7%94%a8go%e5%86%8d%e5%b8%a6%e7%9a%84pprof%e6%9f%a5%e7%9c%8b" class="header-anchor">&lt;/a>使用go再带的pprof查看
+&lt;/h3>&lt;p>代码中监听了 &lt;strong>8090&lt;/strong> 端口，在浏览器中输入 &lt;code>http://127.0.0.1:8090/debug/pprof/&lt;/code>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-907bb5ac613c504a.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-907bb5ac613c504a.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>下面都有解释，就不用详细介绍了，挑一两个说一下&lt;/p>
+&lt;ul>
+&lt;li>allocs : 程序运行期间，所有内存分配的样本&lt;/li>
+&lt;li>heap : 当前活动对象的内存分配采样&lt;/li>
+&lt;li>guroutine : 当前所有协程的堆栈跟踪&lt;/li>
+&lt;/ul>
+&lt;p>可以看到，当前的程序总共有10005个协程，21次堆内存分配，说明我们的协程是被阻塞的。&lt;/p>
+&lt;h3 id="使用graphviz查看">&lt;a href="#%e4%bd%bf%e7%94%a8graphviz%e6%9f%a5%e7%9c%8b" class="header-anchor">&lt;/a>使用graphviz查看
+&lt;/h3>&lt;p>在命令行中，在Windows中可以使用 powerShell
+输入 &lt;code>go tool pprof -http :8081 http://127.0.0.1:8090/debug/pprof/heap&lt;/code>&lt;/p>
+&lt;p>如果要分析CPU占用，使用&lt;/p>
+&lt;p>&lt;code>go tool pprof -http :8081 http://127.0.0.1:8090/debug/pprof/profile?seconds=120&lt;/code>&lt;/p>
+&lt;p>会在浏览器中打开
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9e9641988f601903.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9e9641988f601903.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>这就是当前 &lt;strong>heap&lt;/strong> 采样图
+可以在 &lt;strong>VIEW&lt;/strong> 中切换不同的显示方式&lt;/p>
+&lt;p>图中方块越大便是占用的内存越多，方块中连线越粗表示耗时越多&lt;/p>
+&lt;h2 id="内存泄露误区">&lt;a href="#%e5%86%85%e5%ad%98%e6%b3%84%e9%9c%b2%e8%af%af%e5%8c%ba" class="header-anchor">&lt;/a>内存泄露误区
+&lt;/h2>&lt;p>我在排查内存泄露时，当我把goroutine阻塞解决后，通过linux 的 &lt;strong>top&lt;/strong> 命令查看Gateway内存占用时，发现内存没有降下来，一时让我陷入困惑，为啥goroutine 都结束了，为啥内存还不释放呢？直到我在网上找到了这篇文章 &lt;a class="link" href="https://colobu.com/2019/08/28/go-memory-leak-i-dont-think-so/" target="_blank" rel="noopener"
+>传送门&lt;/a>&lt;br>
+这位大神写的golang 相关的文章，是目前我在网上找到的最牛逼的之一，文章不光有深度，而且通俗易懂。&lt;/p>
+&lt;h3 id="重新验证">&lt;a href="#%e9%87%8d%e6%96%b0%e9%aa%8c%e8%af%81" class="header-anchor">&lt;/a>重新验证
+&lt;/h3>&lt;p>修改上面的代码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;math/rand&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> _ &lt;span style="color:#f1fa8c">&amp;#34;net/http/pprof&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;sync&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> &lt;span style="color:#ff79c6">go&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">func&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> http.&lt;span style="color:#50fa7b">ListenAndServe&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;0.0.0.0:8090&amp;#34;&lt;/span>, &lt;span style="color:#ff79c6">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> }()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">var&lt;/span> wg sync.WaitGroup
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> wg.&lt;span style="color:#50fa7b">Add&lt;/span>(&lt;span style="color:#bd93f9">1&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> i &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span>; i &amp;lt; &lt;span style="color:#bd93f9">10000&lt;/span>; i&lt;span style="color:#ff79c6">++&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> &lt;span style="color:#ff79c6">go&lt;/span> &lt;span style="color:#50fa7b">one&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> wg.&lt;span style="color:#50fa7b">Wait&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">one&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">var&lt;/span> a []&lt;span style="color:#8be9fd">int64&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> i &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span>; i &amp;lt; &lt;span style="color:#bd93f9">10000&lt;/span>; i&lt;span style="color:#ff79c6">++&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span> a = &lt;span style="color:#8be9fd;font-style:italic">append&lt;/span>(a, rand.&lt;span style="color:#50fa7b">Int63&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span> time.&lt;span style="color:#50fa7b">Sleep&lt;/span>(time.Second &lt;span style="color:#ff79c6">*&lt;/span> &lt;span style="color:#bd93f9">1&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>现在 go 出来的的函数 &lt;code>one&lt;/code> 不再一直阻塞，而是只会阻塞5秒&lt;/p>
+&lt;p>把程序运行起来看一下&lt;/p>
+&lt;p>等一段时间后，发现goroutine数量已经下来了，说明阻塞的协程都已经结束了，如图
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7d29e861c224e51b.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7d29e861c224e51b.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>但是通过任务管理器中，看到程序还是占用着大量的内存
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-58966e5ea8aaecf5.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-58966e5ea8aaecf5.webp" alt="任务管理器" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>这时点击 &lt;strong>heap&lt;/strong> 查看具体的堆内存情况，拉到最低下，看到一堆参数&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-f5dba243c2239857.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-f5dba243c2239857.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>参数很多，但是重点关注被框出来的那几个就好了，详细的分析在大神的文章中有分析，在go的库文件中也能找到，里面有详细的注释。
+路径 &lt;code>src-&amp;gt;runtime-&amp;gt;mstats.go&lt;/code> 文件中有 &lt;strong>MemStats&lt;/strong> 的定义和注释&lt;/p>
+&lt;p>这些参数的单位都是字节&lt;/p>
+&lt;ul>
+&lt;li>TotalAlloc : 所有对象分配的总和，整个程序运行期间，只增不减&lt;/li>
+&lt;li>HeapAlloc : 分配的堆对象的字节数，包括可访问的对象和未被GC回收的不可访问的对象，这个值会动态变化，分配对象时增加，回收对象后减少&lt;/li>
+&lt;li>HeapIdle : 闲置的span中的字节数，这些span中已经没有对象了（不用了），但是现在还没有还给操作系统，这些span可以重新用来分配heap和stack。HeapIdle 减去 HeapReleased 的值可以当作 &amp;ldquo;可以返回到操作系统但由运行时保留的内存量&amp;rdquo;，也就是说，go的runtime可以在不像操作系统申请内存的情况下，也可以分配heap空间，这样可以提高程序性能&lt;/li>
+&lt;li>HeapInuse : 正在使用的span的字节大小&lt;/li>
+&lt;li>HeapReleased : 是返还给操作系统的物理内存的字节数&lt;/li>
+&lt;/ul>
+&lt;p>回到我们的测试程序中，当所有的goroutine都结束时，GC会开始回收切片，但是被回收的内存不会直接换给操作系统，而是由go的runtime暂时保管（也就是 &lt;strong>HeapIdle&lt;/strong> 值会变大），接下来如果再次需要分配空间，go的runtime可以不向操作系统申请内存，直接从自己保管的闲置内存中分配，这样可以提高程序性能。至于GO的runtime什么时候把这部分内存还给操作系统，不同的分配策略和不同的系统不太一样，这个有点深，我还没有深入研究这些。不过 &lt;a class="link" href="https://colobu.com/2019/08/28/go-memory-leak-i-dont-think-so/" target="_blank" rel="noopener"
+>传送门&lt;/a> 的文中有介绍 &lt;strong>MADV_FREE&lt;/strong> 有兴趣可以自己学习一下&lt;/p>
+&lt;h2 id="总结">&lt;a href="#%e6%80%bb%e7%bb%93" class="header-anchor">&lt;/a>总结
+&lt;/h2>&lt;ul>
+&lt;li>go 虽然有GC，但是使用不当也会导致内存泄露&lt;/li>
+&lt;li>不同的操作系统和不用策略，会导致go程序的内存已经被回收了，但是没有及时的归还给操作系统&lt;/li>
+&lt;/ul>
+&lt;p>由于水平有限，文中如有谬处，还请在评论区不吝赐教&lt;/p></description></item></channel></rss>
