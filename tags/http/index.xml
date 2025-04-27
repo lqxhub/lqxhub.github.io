@@ -1,0 +1,503 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>HTTP on QX 的笔记</title><link>https://lqxhub.github.io/tags/http/</link><description>Recent content in HTTP on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 13 Mar 2021 17:40:55 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/http/index.xml" rel="self" type="application/rss+xml"/><item><title>golang造轮子 封装一个简单的http client</title><link>https://lqxhub.github.io/posts/19d697e6/</link><pubDate>Sat, 13 Mar 2021 17:40:55 +0000</pubDate><guid>https://lqxhub.github.io/posts/19d697e6/</guid><description>&lt;p>近来无事，本着爱折腾的原则，在go原生 http client 的基础上，自己封装了一个go的http client。由于才疏学浅，再加是第一次造轮子，在各位大佬面前献丑了，写的烂的地方，请轻喷。还请各位不吝赐教。&lt;/p>
+&lt;p>先放地址&lt;/p>
+&lt;p>&lt;strong>gethub：&lt;/strong> &lt;a class="link" href="https://github.com/lqxhub/easy_http" target="_blank" rel="noopener"
+>https://github.com/lqxhub/easy_http&lt;/a>&lt;/p>
+&lt;p>&lt;strong>Gitee：&lt;/strong> &lt;a class="link" href="https://gitee.com/lqxlucky/easy_http" target="_blank" rel="noopener"
+>https://gitee.com/lqxlucky/easy_http&lt;/a>&lt;/p>
+&lt;h2 id="简单介绍一下功能">&lt;a href="#%e7%ae%80%e5%8d%95%e4%bb%8b%e7%bb%8d%e4%b8%80%e4%b8%8b%e5%8a%9f%e8%83%bd" class="header-anchor">&lt;/a>简单介绍一下功能
+&lt;/h2>&lt;ol>
+&lt;li>使用 构造器模式，提供了链式调用和方便使用的接口&lt;/li>
+&lt;li>支持https自定义服务器证书校验和双向证书校验&lt;/li>
+&lt;li>支持代理,可以方便的设置代理&lt;/li>
+&lt;li>封装了multipart 协议, 可以方便的上传文件&lt;/li>
+&lt;li>具有很强的拓展性,可以在基础上非常方便的定制自己http请求&lt;/li>
+&lt;li>支持http的 返回结果 异步回调&lt;/li>
+&lt;li>可以方便的自定义Response&lt;/li>
+&lt;/ol>
+&lt;h2 id="安装库">&lt;a href="#%e5%ae%89%e8%a3%85%e5%ba%93" class="header-anchor">&lt;/a>安装库
+&lt;/h2>&lt;p>可以使用github的库,也可使用Gitee的库，两个库的代码都是一样的，因为github网速的原因，所以在gitee上也传了一份&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>github：&lt;code>go get -u https://github.com/lqxhub/easy_http&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>gitee： &lt;code>go get -u https://gitee.com/lqxlucky/easy_http&lt;/code>&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h2 id="使用">&lt;a href="#%e4%bd%bf%e7%94%a8" class="header-anchor">&lt;/a>使用
+&lt;/h2>&lt;h3 id="引入库">&lt;a href="#%e5%bc%95%e5%85%a5%e5%ba%93" class="header-anchor">&lt;/a>引入库
+&lt;/h3>&lt;p>因为github和gitee拉下来的库目录不同，所以以github的为准&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>import &amp;#34;github.com/lqxhub/easy_http&amp;#34;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="具体使用">&lt;a href="#%e5%85%b7%e4%bd%93%e4%bd%bf%e7%94%a8" class="header-anchor">&lt;/a>具体使用
+&lt;/h3>&lt;h4 id="全部配置">&lt;a href="#%e5%85%a8%e9%83%a8%e9%85%8d%e7%bd%ae" class="header-anchor">&lt;/a>全部配置
+&lt;/h4>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> &lt;span style="color:#6272a4">//得到一个http client的构造器
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> builder &lt;span style="color:#ff79c6">:=&lt;/span> easy_http.&lt;span style="color:#50fa7b">NewClientBuilder&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> &lt;span style="color:#6272a4">//是否跳过服务器证书校验
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> builder.&lt;span style="color:#50fa7b">SkipVerify&lt;/span>(&lt;span style="color:#ff79c6">false&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> &lt;span style="color:#6272a4">//设置超时时间
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> builder.&lt;span style="color:#50fa7b">TimeOut&lt;/span>(time.Second &lt;span style="color:#ff79c6">*&lt;/span> &lt;span style="color:#bd93f9">5&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> &lt;span style="color:#6272a4">//设置代理
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> builder.&lt;span style="color:#50fa7b">ProxyUrl&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;http://127.0.0.1:10809&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> &lt;span style="color:#6272a4">//设置根证书
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">var&lt;/span> certPool [&lt;span style="color:#bd93f9">1&lt;/span>]&lt;span style="color:#8be9fd">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> certPool[&lt;span style="color:#bd93f9">0&lt;/span>] = &lt;span style="color:#f1fa8c">&amp;#34;D:\\server.pem&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> builder.&lt;span style="color:#50fa7b">Cert&lt;/span>(certPool[:])
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> &lt;span style="color:#6272a4">//设置双向校验证书
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">var&lt;/span> tlsPath [&lt;span style="color:#bd93f9">1&lt;/span>]&lt;span style="color:#ff79c6">*&lt;/span>easy_http.TlsPath
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> tlsPath[&lt;span style="color:#bd93f9">0&lt;/span>] = &lt;span style="color:#ff79c6">&amp;amp;&lt;/span>easy_http.TlsPath{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> CertFile: &lt;span style="color:#f1fa8c">&amp;#34;D:\\client.pem&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> KeyFile: &lt;span style="color:#f1fa8c">&amp;#34;D:\\client.key&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span> builder.&lt;span style="color:#50fa7b">Tls&lt;/span>(tlsPath[:])
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span> &lt;span style="color:#6272a4">//设置http请求header
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> header &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">make&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">map&lt;/span>[&lt;span style="color:#8be9fd">string&lt;/span>]&lt;span style="color:#8be9fd">string&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span> header[&lt;span style="color:#f1fa8c">&amp;#34;Accept-Language&amp;#34;&lt;/span>] = &lt;span style="color:#f1fa8c">&amp;#34;Accept-Language: en,zh&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span> builder.&lt;span style="color:#50fa7b">Header&lt;/span>(header)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32&lt;/span>&lt;span> &lt;span style="color:#6272a4">//设置http请求cookie
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> cookie &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">make&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">map&lt;/span>[&lt;span style="color:#8be9fd">string&lt;/span>]&lt;span style="color:#8be9fd">string&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34&lt;/span>&lt;span> cookie[&lt;span style="color:#f1fa8c">&amp;#34;name&amp;#34;&lt;/span>] = &lt;span style="color:#f1fa8c">&amp;#34;value&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35&lt;/span>&lt;span> builder.&lt;span style="color:#50fa7b">Cookie&lt;/span>(easy_http.&lt;span style="color:#50fa7b">EasyCookie&lt;/span>(cookie))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37&lt;/span>&lt;span> &lt;span style="color:#6272a4">//开启cookie jar
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> builder.&lt;span style="color:#50fa7b">Jar&lt;/span>(&lt;span style="color:#ff79c6">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40&lt;/span>&lt;span> &lt;span style="color:#6272a4">//设置 Response 处理函数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> builder.&lt;span style="color:#50fa7b">BuildResponse&lt;/span>(easy_http.EasyBuildResponse)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43&lt;/span>&lt;span> &lt;span style="color:#6272a4">//构造client
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> client, err &lt;span style="color:#ff79c6">:=&lt;/span> builder.&lt;span style="color:#50fa7b">Build&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;aa&amp;#34;&lt;/span>, err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这样就初始化一个http的客户端&lt;/p>
+&lt;p>当然，上面的例子是设置了所有配置的，也可以全部使用默认配置&lt;/p>
+&lt;h3 id="使用默认配置">&lt;a href="#%e4%bd%bf%e7%94%a8%e9%bb%98%e8%ae%a4%e9%85%8d%e7%bd%ae" class="header-anchor">&lt;/a>使用默认配置
+&lt;/h3>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">DefaultClient&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> builder &lt;span style="color:#ff79c6">:=&lt;/span> easy_http.&lt;span style="color:#50fa7b">NewClientBuilder&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> client, err &lt;span style="color:#ff79c6">:=&lt;/span> builder.&lt;span style="color:#50fa7b">Build&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8&lt;/span>&lt;span> client.&lt;span style="color:#50fa7b">Get&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;http://baidu.com&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这样同样是可以的&lt;/p>
+&lt;h4 id="easy-函数-使用">&lt;a href="#easy-%e5%87%bd%e6%95%b0-%e4%bd%bf%e7%94%a8" class="header-anchor">&lt;/a>easy 函数 使用
+&lt;/h4>&lt;p>库中提供了一些函数，可以方便的构造http请求相关的结构&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">EasyFunction&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> url &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#f1fa8c">&amp;#34;http://baidu.com&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> &lt;span style="color:#6272a4">//合成http get的url和参数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> values &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">make&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">map&lt;/span>[&lt;span style="color:#8be9fd">string&lt;/span>]&lt;span style="color:#8be9fd">string&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> values[&lt;span style="color:#f1fa8c">&amp;#34;v&amp;#34;&lt;/span>] = &lt;span style="color:#f1fa8c">&amp;#34;123456&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> easy_http.&lt;span style="color:#50fa7b">EasyGet&lt;/span>(url, values)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> &lt;span style="color:#6272a4">//构造cookie
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> cookie &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">make&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">map&lt;/span>[&lt;span style="color:#8be9fd">string&lt;/span>]&lt;span style="color:#8be9fd">string&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> cookie[&lt;span style="color:#f1fa8c">&amp;#34;name&amp;#34;&lt;/span>] = &lt;span style="color:#f1fa8c">&amp;#34;value&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> easy_http.&lt;span style="color:#50fa7b">EasyCookie&lt;/span>(cookie)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> &lt;span style="color:#6272a4">//合成 http post 的参数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> easy_http.&lt;span style="color:#50fa7b">EasyPost&lt;/span>(values)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> &lt;span style="color:#6272a4">//构造 上传文件的multipart
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> multipartBuilder &lt;span style="color:#ff79c6">:=&lt;/span> easy_http.&lt;span style="color:#50fa7b">NewMultipartBuilder&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> multipartBuilder.&lt;span style="color:#50fa7b">AddFile&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;file1&amp;#34;&lt;/span>,&lt;span style="color:#f1fa8c">&amp;#34;D:\\a.txt&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> multipartBuilder.&lt;span style="color:#50fa7b">AddFromDate&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;name&amp;#34;&lt;/span>,&lt;span style="color:#f1fa8c">&amp;#34;value&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> multipartBuilder.&lt;span style="color:#50fa7b">AddBytes&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;name2&amp;#34;&lt;/span>,[]&lt;span style="color:#8be9fd;font-style:italic">byte&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;aaaaa&amp;#34;&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> multipart, err &lt;span style="color:#ff79c6">:=&lt;/span> multipartBuilder.&lt;span style="color:#50fa7b">Builder&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="异步回调使用">&lt;a href="#%e5%bc%82%e6%ad%a5%e5%9b%9e%e8%b0%83%e4%bd%bf%e7%94%a8" class="header-anchor">&lt;/a>异步回调使用
+&lt;/h4>&lt;p>库封装了 异步回调功能，请求会在一个新的goroutine中进行。当http请求完成时，会回调函数。回调函数可用形参使用传入函数和实现接口两种方式&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">Call&lt;/span>(response easy_http.IResponse) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(response.&lt;span style="color:#50fa7b">Error&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(response.&lt;span style="color:#50fa7b">StatusCode&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">string&lt;/span>(response.&lt;span style="color:#50fa7b">Content&lt;/span>()))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">type&lt;/span> Get &lt;span style="color:#8be9fd;font-style:italic">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> (g Get) &lt;span style="color:#50fa7b">EasyResponseCallback&lt;/span>(response easy_http.IResponse) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(response.&lt;span style="color:#50fa7b">Error&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(response.&lt;span style="color:#50fa7b">StatusCode&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">string&lt;/span>(response.&lt;span style="color:#50fa7b">Content&lt;/span>()))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">AsynchronousRequest&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> url &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#f1fa8c">&amp;#34;http://baidu.com&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> client, err &lt;span style="color:#ff79c6">:=&lt;/span> easy_http.&lt;span style="color:#50fa7b">NewClientBuilder&lt;/span>().&lt;span style="color:#50fa7b">Build&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span> &lt;span style="color:#6272a4">//函数异步回调
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> client.&lt;span style="color:#50fa7b">GetAsyn&lt;/span>(url, Call)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span> &lt;span style="color:#6272a4">//接口异步回调
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> client.&lt;span style="color:#50fa7b">GetAsynWithCallback&lt;/span>(url, &lt;span style="color:#ff79c6">&amp;amp;&lt;/span>Get{})
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="自定义请求">&lt;a href="#%e8%87%aa%e5%ae%9a%e4%b9%89%e8%af%b7%e6%b1%82" class="header-anchor">&lt;/a>自定义请求
+&lt;/h4>&lt;p>因为库中只封装了 GET和POST这两种方式，向PUT，DELETE等这些方式需要自己去实现。所以，可以使用下面的函数来实现&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">Call&lt;/span>(response easy_http.IResponse) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(response.&lt;span style="color:#50fa7b">Error&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(response.&lt;span style="color:#50fa7b">StatusCode&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">string&lt;/span>(response.&lt;span style="color:#50fa7b">Content&lt;/span>()))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">CustomizeRequest&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> url &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#f1fa8c">&amp;#34;http://baidu.com&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> client, err &lt;span style="color:#ff79c6">:=&lt;/span> easy_http.&lt;span style="color:#50fa7b">NewClientBuilder&lt;/span>().&lt;span style="color:#50fa7b">Build&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> response &lt;span style="color:#ff79c6">:=&lt;/span> client.&lt;span style="color:#50fa7b">SendWithMethod&lt;/span>(url, http.MethodPut, &lt;span style="color:#ff79c6">nil&lt;/span>, &lt;span style="color:#8be9fd;font-style:italic">func&lt;/span>(request &lt;span style="color:#ff79c6">*&lt;/span>http.Request) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> &lt;span style="color:#6272a4">//修改Request
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> })
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(response.&lt;span style="color:#50fa7b">Error&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(response.&lt;span style="color:#50fa7b">StatusCode&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> &lt;span style="color:#6272a4">//异步方式
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> client.&lt;span style="color:#50fa7b">SendWithMethodCallBack&lt;/span>(url, http.MethodPut, &lt;span style="color:#ff79c6">nil&lt;/span>, &lt;span style="color:#8be9fd;font-style:italic">func&lt;/span>(request &lt;span style="color:#ff79c6">*&lt;/span>http.Request) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> &lt;span style="color:#6272a4">//习惯Request
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> }, Call)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="使用go-http默认的函数请求">&lt;a href="#%e4%bd%bf%e7%94%a8go-http%e9%bb%98%e8%ae%a4%e7%9a%84%e5%87%bd%e6%95%b0%e8%af%b7%e6%b1%82" class="header-anchor">&lt;/a>使用go http默认的函数请求
+&lt;/h4>&lt;p>当需要有一些特殊的请求，这个库无法满足时，可以使用go http原生的方式来请求&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">Primitive&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> url &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#f1fa8c">&amp;#34;http://baidu.com&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> client, err &lt;span style="color:#ff79c6">:=&lt;/span> easy_http.&lt;span style="color:#50fa7b">NewClientBuilder&lt;/span>().&lt;span style="color:#50fa7b">Build&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> &lt;span style="color:#6272a4">//获取Request
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> request, err &lt;span style="color:#ff79c6">:=&lt;/span> http.&lt;span style="color:#50fa7b">NewRequest&lt;/span>(http.MethodGet, url, &lt;span style="color:#ff79c6">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> &lt;span style="color:#6272a4">//得到http的原生Response
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> response, err &lt;span style="color:#ff79c6">:=&lt;/span> client.&lt;span style="color:#50fa7b">DoRequest&lt;/span>(request)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(response)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="自定义response">&lt;a href="#%e8%87%aa%e5%ae%9a%e4%b9%89response" class="header-anchor">&lt;/a>自定义Response
+&lt;/h4>&lt;p>库中返回的Response是一个接口类型，只要实现了这个接口，都可作为返回值返回，自定义的Response，在构造client的设置就可以了&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">type&lt;/span> MyResponse &lt;span style="color:#8be9fd;font-style:italic">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> (m MyResponse) &lt;span style="color:#50fa7b">Error&lt;/span>() &lt;span style="color:#8be9fd">error&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> (m MyResponse) &lt;span style="color:#50fa7b">StatusCode&lt;/span>() &lt;span style="color:#8be9fd">int&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> (m MyResponse) &lt;span style="color:#50fa7b">Header&lt;/span>() http.Header {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> (m MyResponse) &lt;span style="color:#50fa7b">ContentLength&lt;/span>() &lt;span style="color:#8be9fd">int64&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> (m MyResponse) &lt;span style="color:#50fa7b">Content&lt;/span>() []&lt;span style="color:#8be9fd">byte&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> (m MyResponse) &lt;span style="color:#50fa7b">Resp&lt;/span>() &lt;span style="color:#ff79c6">*&lt;/span>http.Response {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> (m MyResponse) &lt;span style="color:#50fa7b">Request&lt;/span>() &lt;span style="color:#ff79c6">*&lt;/span>http.Request {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> (m MyResponse) &lt;span style="color:#50fa7b">Cookie&lt;/span>(name &lt;span style="color:#8be9fd">string&lt;/span>) &lt;span style="color:#ff79c6">*&lt;/span>http.Cookie {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36&lt;/span>&lt;span>&lt;span style="color:#6272a4">//构造HTTP response的函数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">MyBuildResponse&lt;/span>(resp &lt;span style="color:#ff79c6">*&lt;/span>http.Response, err &lt;span style="color:#8be9fd">error&lt;/span>) easy_http.IResponse {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38&lt;/span>&lt;span> response &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">new&lt;/span>(MyResponse)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39&lt;/span>&lt;span> &lt;span style="color:#6272a4">//做处理
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> &lt;span style="color:#ff79c6">return&lt;/span> response
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">CustomizeResponse&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43&lt;/span>&lt;span> client, err &lt;span style="color:#ff79c6">:=&lt;/span> easy_http.&lt;span style="color:#50fa7b">NewClientBuilder&lt;/span>().
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44&lt;/span>&lt;span> &lt;span style="color:#50fa7b">BuildResponse&lt;/span>(MyBuildResponse).
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45&lt;/span>&lt;span> &lt;span style="color:#50fa7b">Build&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">50&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>结构体 &lt;code>MyResponse&lt;/code> 实现了 &lt;code>easy_http.IResponse&lt;/code> 这个接口。然后在&lt;code>MyBuildResponse&lt;/code>这个函数中，new 一个 &lt;code>MyResponse&lt;/code>的对象，再根据自己的需要，做相应的处理就可以了。
+在&lt;code>clientBuilder.BuildResponse(MyBuildResponse)&lt;/code>设置就可以了&lt;/p>
+&lt;h2 id="最后">&lt;a href="#%e6%9c%80%e5%90%8e" class="header-anchor">&lt;/a>最后
+&lt;/h2>&lt;p>整个库的基本功能就是这些了。第一造轮子，写的很烂。写这篇文章时，还发现了好几个因为首字母小写导致的问题。&lt;/p>
+&lt;p>有问题的地方，还请不吝赐教&lt;/p></description></item><item><title>php 获取HTTP POST中不同格式的数据</title><link>https://lqxhub.github.io/posts/ba4d9bad/</link><pubDate>Thu, 27 Dec 2018 13:39:26 +0000</pubDate><guid>https://lqxhub.github.io/posts/ba4d9bad/</guid><description>&lt;p>HTTP协议中的POST 方法有多中格式的数据协议,在HTTP的head中用不同的&lt;code>Content-type&lt;/code>标识.常用的有&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;code>application/x-www-form-urlencoded&lt;/code>,这是最常见的,就是from表单的格式.在HTTP的head中是&lt;code>Content-Type: application/x-www-form-urlencoded&lt;/code>.&lt;/p>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>&lt;code>multipart/form-data&lt;/code>,这个是用来上传文件的,在HTTP的head中是&lt;code>Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW&lt;/code>&lt;/p>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>&lt;code>Raw&lt;/code> 这个不是特别常用,传输的数据在HTTP的body中只有一段,不是以键值对的形式存放.在HTTP的head中是&lt;code>Content-Type: application/json&lt;/code>,&lt;code>Content-Type: text&lt;/code>,&lt;code>Content-Type: application/xml&lt;/code>,&lt;code>Content-Type: text/xml&lt;/code>,等等形式&lt;/p>
+&lt;/blockquote>
+&lt;p>对于&lt;code>Content-Type: application/x-www-form-urlencoded&lt;/code>这种form表单的数据,在php中,使用&lt;code>$_POST['name']&lt;/code>可以直接获取, 没有什么特别的&lt;/p>
+&lt;p>&lt;code>Content-Type: multipart/form-data; &lt;/code>这种格式的数据,在php中使用&lt;code>$_POST['name']&lt;/code>可以获取字符数据,使用&lt;code>$_FILES['file']&lt;/code>可以获取.&lt;/p>
+&lt;p>对于&lt;code>Raw&lt;/code>这种格式的数据,使用以上两种办法没有办法获取到,需要使用别的手段.
+1.使用&lt;code>file_get_contents(&amp;quot;php://input&amp;quot;)&lt;/code>获取;写一个简单php文件测试一下&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-php" data-lang="php">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">&amp;lt;?&lt;/span>php
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">$test&lt;/span>&lt;span style="color:#ff79c6">=&lt;/span>file_get_contents(&lt;span style="color:#f1fa8c">&amp;#34;php://input&amp;#34;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">echo&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">$test&lt;/span>;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>用postman测试一下
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-da2f59e4f1c51f16.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-da2f59e4f1c51f16.webp" alt="" />
+&lt;/a>
+&lt;/div>
+没问题,可以接收到&lt;/p>
+&lt;p>2.使用&lt;code>$GLOBALS['HTTP_RAW_POST_DATA']&lt;/code>接收&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-php" data-lang="php">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">&amp;lt;?&lt;/span>php
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">$test&lt;/span>&lt;span style="color:#ff79c6">=&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">$GLOBALS&lt;/span>[&lt;span style="color:#f1fa8c">&amp;#39;HTTP_RAW_POST_DATA&amp;#39;&lt;/span>];
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">echo&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">$test&lt;/span>;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>用postman测试一下
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-96ec2d127bfb979e.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-96ec2d127bfb979e.webp" alt="" />
+&lt;/a>
+&lt;/div>
+卧槽,竟然出错了,提示没有发现&lt;strong>HTTP_RAW_POST_DATA&lt;/strong>这个数组索引,什么鬼.Google一番,在php的官网看到了这样一段话
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-5ab88c19311732c8.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-5ab88c19311732c8.webp" alt="" />
+&lt;/a>
+&lt;/div>
+原来&lt;strong>HTTP_RAW_POST_DATA&lt;/strong>这个在php5.6中已经被废弃了,在php7.0以后的版本中已经被删除了,我用的php版本为7.2,肯定就出错了&lt;/p>
+&lt;p>好吧,那就老老实实的用&lt;code>file_get_contents(&amp;quot;php://input&amp;quot;)&lt;/code>获取吧&lt;/p>
+&lt;p>在实际开发中,一般都是使用框架的,我用thinkphp用比较多,在tp5.0中可以使用&lt;code>Request的getInput()&lt;/code>函数获取&lt;code>Raw&lt;/code>中的数据&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-php" data-lang="php">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">&amp;lt;?&lt;/span>php
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">namespace&lt;/span> app\index\controller;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>&lt;span style="color:#ff79c6">use&lt;/span> think\Request;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>&lt;span style="color:#ff79c6">class&lt;/span> &lt;span style="color:#50fa7b">Index&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> &lt;span style="color:#ff79c6">public&lt;/span> &lt;span style="color:#ff79c6">function&lt;/span> &lt;span style="color:#50fa7b">index&lt;/span>(Request &lt;span style="color:#8be9fd;font-style:italic">$request&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> &lt;span style="color:#ff79c6">echo&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">$request&lt;/span>&lt;span style="color:#ff79c6">-&amp;gt;&lt;/span>&lt;span style="color:#50fa7b">getInput&lt;/span>();
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>测试一下
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e82d2b162d373cc9.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e82d2b162d373cc9.webp" alt="" />
+&lt;/a>
+&lt;/div>
+没有问题,可以正常获取&lt;/p>
+&lt;p>&lt;strong>关于php获取HTTP POST数据的方法先介绍到这里&lt;/strong>&lt;/p></description></item><item><title>使用fiddler在手机上抓HTTPS包</title><link>https://lqxhub.github.io/posts/46c7ea4a/</link><pubDate>Sun, 21 Oct 2018 15:55:05 +0000</pubDate><guid>https://lqxhub.github.io/posts/46c7ea4a/</guid><description>&lt;p>最近想抓取手机上app的数据包,在电脑上抓包可选的工具有很多, 比如&lt;strong>wireshark&lt;/strong>,Linux命令行下有&lt;strong>tcpdump&lt;/strong>等等工具。可是在这些工具在手机上都没法使用，这怎么搞!&lt;/p>
+&lt;p>&lt;a class="link" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-58848e89e884254d.webp" target="_blank" rel="noopener"
+>&lt;/a>
+后来想了想能不能用网络代理抓包呢,说干就干。从网上查到，用fiddler可以代理手机的网络。&lt;/p>
+&lt;h2 id="第一步下载fiddler">&lt;a href="#%e7%ac%ac%e4%b8%80%e6%ad%a5%e4%b8%8b%e8%bd%bdfiddler" class="header-anchor">&lt;/a>第一步下载fiddler
+&lt;/h2>&lt;p>去下载一个fiddler，建议去官网下载&lt;a class="link" href="https://www.telerik.com/download/fiddler" target="_blank" rel="noopener"
+>传送门&lt;/a>。
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4623113b3cc81f47.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4623113b3cc81f47.webp" alt="fiddler" />
+&lt;/a>
+&lt;/div>
+勾选协议,填写邮箱,然后下载就可以&lt;/p>
+&lt;h2 id="第二步安装fiddler">&lt;a href="#%e7%ac%ac%e4%ba%8c%e6%ad%a5%e5%ae%89%e8%a3%85fiddler" class="header-anchor">&lt;/a>第二步安装fiddler
+&lt;/h2>&lt;p>双击下载的.exe文件,然后选择目录,next,next,完成安装
+##第三步安装CertMaker插件
+fiddler默认生成的证书不能满足Android和iOS系统的要求,需要使用这个插件 &lt;a class="link" href="https://www.telerik.com/fiddler/add-ons" target="_blank" rel="noopener"
+>传送门&lt;/a> 往下找,找到图片的地方,点击下载,下载后,双击安装&lt;/p>
+&lt;h2 id="第四步配置fiddler代理">&lt;a href="#%e7%ac%ac%e5%9b%9b%e6%ad%a5%e9%85%8d%e7%bd%aefiddler%e4%bb%a3%e7%90%86" class="header-anchor">&lt;/a>第四步配置fiddler代理
+&lt;/h2>&lt;p>想要抓HTTPS的数据包,必须安装证书,
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7d789925391e1cbc.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7d789925391e1cbc.webp" alt="fiddler" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;h2 id="httpscdnjsdelivrnetghlqxhubimagesmasterblog3622259-743eda534ce02dafwebp">&lt;a href="#httpscdnjsdelivrnetghlqxhubimagesmasterblog3622259-743eda534ce02dafwebp" class="header-anchor">&lt;/a>点击tools-&amp;gt;options,然后出现这个界面,按照我标注的1,2,3,4都勾选,中间会出现一些提示,都点 &lt;strong>yes&lt;/strong>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-743eda534ce02daf.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-743eda534ce02daf.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/h2>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7e8cbdaa3aa9b801.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7e8cbdaa3aa9b801.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;hr>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-89aad703f4de31de.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-89aad703f4de31de.webp" alt="ca2.png" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;hr>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-bfd40396ad37918f.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-bfd40396ad37918f.webp" alt="ca_ok.png" />
+&lt;/a>
+&lt;/div>
+最后出现这个对话框说明证书已经安装成功。&lt;/p>
+&lt;h2 id="第五步配置代理手机和电脑在同一个网络中">&lt;a href="#%e7%ac%ac%e4%ba%94%e6%ad%a5%e9%85%8d%e7%bd%ae%e4%bb%a3%e7%90%86%e6%89%8b%e6%9c%ba%e5%92%8c%e7%94%b5%e8%84%91%e5%9c%a8%e5%90%8c%e4%b8%80%e4%b8%aa%e7%bd%91%e7%bb%9c%e4%b8%ad" class="header-anchor">&lt;/a>第五步配置代理(手机和电脑在同一个网络中)
+&lt;/h2>&lt;p>重启fiddler，开始手机的配置。查看电脑的IP地址,我的是192.168.31.56然后打开手机的浏览器(苹果手机一定要用Safari),输入&lt;strong>IP地址:端口号&lt;/strong> 我的是&lt;strong>192.168.31.56:8888&lt;/strong> 这个根据具体情况设置
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9b0486670a684700.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9b0486670a684700.webp" alt="iPhone" />
+&lt;/a>
+&lt;/div>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b5cce86fcb3de1ee.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b5cce86fcb3de1ee.webp" alt="iPhone" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>下载证书,点击允许,安装证书.&lt;/p>
+&lt;h2 id="重点重点重点">&lt;a href="#%e9%87%8d%e7%82%b9%e9%87%8d%e7%82%b9%e9%87%8d%e7%82%b9" class="header-anchor">&lt;/a>重点、重点、重点
+&lt;/h2>&lt;p>&lt;strong>这时候一定要把安装的证书设置为信任的证书&lt;/strong>
+去手机的设置-&amp;gt;通用-&amp;gt;关于本机-&amp;gt;证书新人设置,把刚才安装的证书设置为信任的证书。再去网络设置中,给WiFi设置代理(电脑和手机一定在同一个网络中)
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-33e071e66c26266e.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-33e071e66c26266e.webp" alt="iPhone" />
+&lt;/a>
+&lt;/div>
+然后打开手机上的app,在fiddler中就可以看到,http的数据了,打开一个HTTPS的连接,可以看到,数据是没有加密的
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-701385010b89fdd2.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-701385010b89fdd2.webp" alt="fiddler" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>这时候如果没有抓到数据包,或者错误,应该是证书配置有问题,把之前的证书清除,按照步骤重新配置一遍.重启fiddler,重新在手机安装证书.
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9f53b6e646f19abc.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9f53b6e646f19abc.webp" alt="清除证书" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;h2 id="总结">&lt;a href="#%e6%80%bb%e7%bb%93" class="header-anchor">&lt;/a>总结
+&lt;/h2>&lt;p>fiddler代理可以抓到大多数的数据包,但不是所有的数据包都能抓到。fiddler并不支持全部协议，目前已知的有http2、tcp、udp、websocket等，如果应用走了以上协议，那么fiddler肯定是抓不到的。因为fiddler是基于.net framework实现的，因为.net framework不支持http2，所以fiddler无法抓取http2。
+还有一种情况,app使用自带的证书,我们给手机安装的证书,app不信任.这样也是无法抓到的。fiddler抓包的原理是中间人攻击，也就是说，两头瞒，欺骗客户端&amp;amp;&amp;amp;欺骗服务器端，如果https证书写死在app里，app只信任自己的证书，fiddler没法瞒客户端了，因此fiddler也就抓取不到包了。&lt;/p></description></item><item><title>Android手机上搭建一个http服务器</title><link>https://lqxhub.github.io/posts/b60bc963/</link><pubDate>Sun, 08 Apr 2018 19:48:03 +0000</pubDate><guid>https://lqxhub.github.io/posts/b60bc963/</guid><description>&lt;p>看到标题是不是有点懵，在Android手机上搭建一个http服务器？？？
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4289714841b06ff7.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4289714841b06ff7.webp" alt="你TM在逗我" />
+&lt;/a>
+&lt;/div>
+没错，我们就是要在Android手机上搭建一个http服务器。提到http服务器一般第一反应是Apache，nginx
+Android上也能运行Apache，nginx了？？？
+Android手机上当然不能运行这些服务器了，这次在Android上运行的是用Golang写的一个简单的http服务器。因为Golang可以跨平台编译，我尝试着把系统选择成Linux，CPU架构选择arm，然后在手机上运行，然后Android手机上真的运行起了一个http服务器!
+&lt;a class="link" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-43d8111cfa38fa59.webp" target="_blank" rel="noopener"
+>惊喜&lt;/a>
+回到正题，要想开发编写golang，首先要配置好golang的开发环境&lt;/p>
+&lt;p>我是在Ubuntu下开发的，新建service.go文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> http.&lt;span style="color:#50fa7b">HandleFunc&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;/&amp;#34;&lt;/span>,myResponse)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> http.&lt;span style="color:#50fa7b">ListenAndServe&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;127.0.0.1:8888&amp;#34;&lt;/span>,&lt;span style="color:#ff79c6">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">myResponse&lt;/span>(w http.ResponseWriter,r&lt;span style="color:#ff79c6">*&lt;/span> http.Request) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> w.&lt;span style="color:#50fa7b">Write&lt;/span>([]&lt;span style="color:#8be9fd;font-style:italic">byte&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;&amp;lt;html&amp;gt;&amp;lt;center&amp;gt; &amp;lt;font size=\&amp;#34;40\&amp;#34;&amp;gt;hello I am go service&amp;lt;/font&amp;gt;&amp;lt;/center&amp;gt;&amp;lt;/html&amp;gt;&amp;#34;&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>不熟悉go的同学注意下，&lt;strong>不要随意回车换行&lt;/strong> &lt;strong>不要随意回车换行&lt;/strong> &lt;strong>不要随意回车换行&lt;/strong> 因为go有点像Python，不是用 &lt;strong>“;”&lt;/strong> 结束的
+简单解释一下&lt;/p>
+&lt;p>&lt;code>http.HandleFunc(&amp;quot;/&amp;quot;,myResponse)&lt;/code> 第一个参数是注册http服务的URL，这里我们填写 &lt;code>&amp;quot;/&amp;quot;&lt;/code>, 在访问的时候直接 &lt;code>localhost:8888&lt;/code> 就行了，如果填 &lt;code>&amp;quot;/test&amp;quot;&lt;/code> 访问的时候URL为&lt;code>localhost/test:8888&amp;quot;&lt;/code>&lt;/p>
+&lt;p>&lt;code>http.ListenAndServe(&amp;quot;127.0.0.1:8888&amp;quot;,nil)&lt;/code> 第一个参数是要监听的ip和端口，第二个填 &lt;code>nil&lt;/code> 就好了&lt;/p>
+&lt;p>然后编译运行试试，在本机上运行的程序用默认的编译参数就行 &lt;code>go build service.go&lt;/code>&lt;/p>
+&lt;p>然后运行 &lt;code>./service &lt;/code>&lt;/p>
+&lt;p>在浏览器中输入URL，成功访问到
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4c0593b18238d911.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4c0593b18238d911.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>下一步我们把这个程序移植到Android上，Android手机必须要有root权限，手机没有root，而又不想root的同学可以用模拟器，只要CPU的指令集参数改一下就行，先在手机上运行一下，我的手机是荣耀6，CPU是海思920，百度到海思920的指令集是arm32的，好的，编译一个
+在编译之前我们先修改一下刚才编译的程序的名&lt;/p>
+&lt;p>执行 &lt;code>GOOS=&amp;quot;linux&amp;quot; GOARCH=&amp;quot;arm&amp;quot; go build service.go&lt;/code>
+得到一个可执行文件，用 &lt;code>file&lt;/code> 命令看一下 &lt;code>file service&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-txt" data-lang="txt">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>service: ELF 32-bit LSB executable, ARM, EABI5 version 1 (SYSV), statically linked, not stripped
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们看到这个文件是一个32位的arm程序。ok，复制的Android手机上试试
+需要用到的软件&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-dc97cda51f2b39f6.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-dc97cda51f2b39f6.webp" alt="Screenshot_2018-04-08-19-17-19.png" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>&lt;strong>“juiceSSH”&lt;/strong> 是用来模拟Linux的shell命令的，&lt;strong>“RE文件管理器”&lt;/strong> 用来修改文件的权限，在Android上chmod命令不起作用。
+先复制到根目录，然后修改文件的权限&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-96acccf703163537.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-96acccf703163537.webp" alt="Screenshot_2018-04-08-19-18-11.png" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-548b70e7f081aa8b.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-548b70e7f081aa8b.webp" alt="Screenshot_2018-04-08-19-18-20.png" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>然后在juiceSSH里运行，然后去浏览器输入URL看看，&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-d12cd408edf34255.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-d12cd408edf34255.webp" alt="Screenshot_2018-04-08-19-19-43.png" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>没问题
+接下来编译一个模拟器上的，我用的genymotion，运行的是Google nexus5手机系统，我百度了一下，nexus5用的是高通骁龙800CPU，然后坑来了，骁龙800是arm32的指令集，按理说直接把那个程序复制进去就可以运行了，但是提示 &lt;code>/system/bin/sh: ./service_arm32: not executable: 32-bit ELF file&lt;/code>&lt;/p>
+&lt;p>后来想了想CPU用的是电脑上的，那编译成 &lt;code>X64&lt;/code> 的试试。还是不行，换成 &lt;code>X86&lt;/code> 的试试。终于成功了。原来是指令要用电脑CPU的，多少位需要模拟器的。&lt;/p>
+&lt;p>执行 &lt;code>GOOS=&amp;quot;linux&amp;quot; GOARCH=&amp;quot;386&amp;quot; go build service.go&lt;/code>&lt;/p>
+&lt;p>复制到模拟器中，然后跟在手机一样，复制到根目录，添加权限。然后用adb shell运行，然后在模拟器的浏览器中发现可以访问
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-75ff994585803468.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-75ff994585803468.webp" alt="genymotion" />
+&lt;/a>
+&lt;/div>
+好了，我们已经在Android上运行一个http服务器了，是不是比较简单&lt;/p></description></item></channel></rss>
