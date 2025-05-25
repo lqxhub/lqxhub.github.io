@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Winshark on QX 的笔记</title><link>https://lqxhub.github.io/tags/winshark/</link><description>Recent content in Winshark on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 16 Dec 2018 10:54:33 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/winshark/index.xml" rel="self" type="application/rss+xml"/><item><title>使用tcpdump+wireshark抓包分析网络数据包</title><link>https://lqxhub.github.io/posts/a3fd02f/</link><pubDate>Sun, 16 Dec 2018 10:54:33 +0000</pubDate><guid>https://lqxhub.github.io/posts/a3fd02f/</guid><description>&lt;p>最近和学弟在调试一个GPRS通信模块,需求是通过GPRS模块通过http协议发送数据到服务器,但是http协议一直失败,服务器返回400,通过查询http状态码得知,http400错误是请求无效,因为GPRS模块没有实现http协议的封装,需要在TCP协议的基础上,手动拼装http格式的报文.所以初步猜测是http协议格式错误导致的.&lt;/p>
+&lt;p>这时候,最简单有效的调错方式就是通过抓包分析,查看数据格式,然后修改.但是在GPRS模块上没法安装抓包工具,只能在服务器上抓包,服务器是centos的,虽然有tcpdump工具,但是没有界面,没法具体分析数据包.
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-07e76fa9d331441d.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-07e76fa9d331441d.webp" alt="tcpdump" />
+&lt;/a>
+&lt;/div>
+直接使用tcpdump抓到的数据包,根本没法分析好不.&lt;/p>
+&lt;p>在windows上,有wireshark这个工具,可以很方便的分析网络数据包,这个软件有多牛鼻就不用多说了,所有经过网卡数据都能抓到,配合图形界面,可以很方便的查看分析数据.不知能查看应用层协议的数据,网络中的五层协议都能查看.
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-3c4762f575fb0262.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-3c4762f575fb0262.webp" alt="wireshark" />
+&lt;/a>
+&lt;/div>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-98ef788511211707.png">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-98ef788511211707.png" alt="wireshark" />
+&lt;/a>
+&lt;/div>
+有没有办法把tcpdump和wireshark这两个软件结合起来使用呢???
+办法当然是有的,把tcpdump抓取的数据转存文件,然后用wireshark打开文件,分析数据.&lt;/p>
+&lt;blockquote>
+&lt;p>1.开启tcpdump抓包,并将结果转存为文件
+&lt;code>tcpdump tcp -s 0 port 80 -w ./http.cap&lt;/code>
+说一下这几个参数
+&lt;code>tcp&lt;/code>是指定抓取那种协议的数据,因为我们要抓取http协议,但是tcp不能指定http协议,但是http协议是基于TCP协议的,所以抓取TCP协议数据.
+&lt;code>-s 0&lt;/code> tcpdump 抓取数据包时默认抓取长度为68字节。加上-S 0 后可以抓到完整的数据包
+&lt;code>port 80&lt;/code> 我的服务器监听的80端口,所以只抓取80端口的数据.
+&lt;code>-w ./http.cap&lt;/code> 指定tcpdump转存数据时的文件 &lt;code>./http.cap&lt;/code>是当前目录下的http.cap文件&lt;/p>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;ol start="2">
+&lt;li>发起请求
+在终端中使用 &lt;strong>ctrl+c&lt;/strong>组合键结束抓包,然后会在当前目录下生成一个http.cap文件
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-729afb96de3efa57.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-729afb96de3efa57.webp" alt="http.cap" />
+&lt;/a>
+&lt;/div>
+&lt;/li>
+&lt;/ol>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>3.把文件下载下来,使用tcpdump分析数据
+在wireshark中,通过&lt;strong>文件&lt;/strong>&amp;gt;&lt;strong>打开&lt;/strong> 找到从服务器下载的http.cap文件,并打开
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-f93441beb2843761.png">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-f93441beb2843761.png" alt="" />
+&lt;/a>
+&lt;/div>
+到这已经成功打开了,剩下的就是分析数据包了
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-f324b589b3b8c925.png">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-f324b589b3b8c925.png" alt="wireshark" />
+&lt;/a>
+&lt;/div>
+在协议http的那一行右键,选择追踪流,然后选择http
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-884eb6da73617670.png">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-884eb6da73617670.png" alt="http" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;/blockquote>
+&lt;p>到这,整个抓包就完成了,是不是很简单呢&lt;/p>
+&lt;p>经过抓包分析,终于解决了http400的问题&lt;/p></description></item></channel></rss>
