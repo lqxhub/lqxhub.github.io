@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Git on QX 的笔记</title><link>https://lqxhub.github.io/tags/git/</link><description>Recent content in Git on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 20 Aug 2022 17:44:17 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/git/index.xml" rel="self" type="application/rss+xml"/><item><title>github提交pull request流程和commit重复解决办法</title><link>https://lqxhub.github.io/posts/639c962/</link><pubDate>Sat, 20 Aug 2022 17:44:17 +0000</pubDate><guid>https://lqxhub.github.io/posts/639c962/</guid><description>&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/1573462520_5dc921f8018f2.jpeg" alt="Featured image of post github提交pull request流程和commit重复解决办法" />&lt;p>给Github上的开源项目贡献代码，就少不了 &lt;strong>pull request&lt;/strong> 也会简称为 &lt;strong>PR&lt;/strong> 或者 &lt;strong>MR&lt;/strong>&lt;/p>
+&lt;p>为啥我不能直接给开源项目提交代码，非要通过 PR 贡献呢。
+主要有两个方面吧&lt;/p>
+&lt;ol>
+&lt;li>开源项目的作者要甄别提交的代码的质量，不能什么烂代码都可以提交到这个项目里，只有作者觉得合适的代码才可以加到项目里&lt;/li>
+&lt;li>防止别人搞破坏，要是谁都能随便提交代码，万一你给我来个删库跑路，作者想问候他全家&lt;/li>
+&lt;/ol>
+&lt;p>基于这两个方面的考虑吧，gitbub只能修改自己的项目的代码，然后向原项目提交 PR， 原项目作者可以选择性的合并到项目中。&lt;/p>
+&lt;p>所以，Github贡献代码基本流程如下：&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-fb1797fd039b58aa.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-fb1797fd039b58aa.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;h2 id="fork">&lt;a href="#fork" class="header-anchor">&lt;/a>fork
+&lt;/h2>&lt;p>这个没什么好说的，找到你想要贡献代码的项目，然后点右上角的 &lt;strong>fork&lt;/strong> 就好了&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-c6738f0061021264.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-c6738f0061021264.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>然后回到自己的 repositories 中就能看到刚才fork 的项目了，其实fork就是复制了当前项目的镜像，这个复制后的镜像就是你自己的了，你拥有最高的权限。&lt;/p>
+&lt;h2 id="pull">&lt;a href="#pull" class="header-anchor">&lt;/a>pull
+&lt;/h2>&lt;p>pull 就是把fork 后的项目拉到本地，然后修改代码。这个没啥说的，就是常规操作。&lt;/p>
+&lt;h2 id="commit">&lt;a href="#commit" class="header-anchor">&lt;/a>commit
+&lt;/h2>&lt;p>commit 也没啥，和正常的提交代码一样，写好提交信息就好了。&lt;/p>
+&lt;h2 id="push">&lt;a href="#push" class="header-anchor">&lt;/a>push
+&lt;/h2>&lt;p>push 就是把这次的commit提交到自己的github上去。注意，这次push是push到自己fork后的仓库中，别搞混了。&lt;/p>
+&lt;h2 id="pull-request">&lt;a href="#pull-request" class="header-anchor">&lt;/a>pull request
+&lt;/h2>&lt;p>现在就到最重要的一步了，创建 pull request了。
+到自己的github中，能看到自己刚才的commit了，这时候github 就会提示我们去创建pull request了&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-1c15af0ce9f3bfad.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-1c15af0ce9f3bfad.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>或者按照下图中的顺序，一样可以到创建 PR的页面&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-0ef49a14cfac4231.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-0ef49a14cfac4231.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>通过下图标注的地方，选择要Merge的分支，一般默认都是正确的。&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4fceaea1aac2486e.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4fceaea1aac2486e.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>因为我已经把这个PR提交了，所以显示的是 &lt;strong>View pull request&lt;/strong>，正常的显示的是 &lt;strong>create pull request&lt;/strong>
+然后根据提示创建这个PR就好了。&lt;/p>
+&lt;p>到这里，一次完整的PR流程基本就完成了，剩下的就等着原项目作者Merge就行了。&lt;/p>
+&lt;p>&lt;strong>但是事情没有结束&lt;/strong>&lt;/p>
+&lt;p>如果原项目作者同意合并了，提交的代码就会合并到主项目中，或者有别人也提交PR了，这是你想再次提交PR的话，就要先同步仓库了，就是把自己fork的仓库和源项目的仓库保持同步。
+如果直接在github上点 &lt;strong>sync fork&lt;/strong>，github会自动帮你Merge两个仓库，也就是会把之前你的commit信息一起Merge过来，
+当你下次再要提交PR的时候，就会出现之前的commit信息。因为在 &lt;strong>sync fork&lt;/strong> 的时候是Merge的，所以会带上之前的提交信息。&lt;/p>
+&lt;h2 id="先说已经sync-fork后在创建-pr时才发现的解决办法">&lt;a href="#%e5%85%88%e8%af%b4%e5%b7%b2%e7%bb%8fsync-fork%e5%90%8e%e5%9c%a8%e5%88%9b%e5%bb%ba-pr%e6%97%b6%e6%89%8d%e5%8f%91%e7%8e%b0%e7%9a%84%e8%a7%a3%e5%86%b3%e5%8a%9e%e6%b3%95" class="header-anchor">&lt;/a>先说已经&lt;strong>sync fork&lt;/strong>后，在创建 PR时才发现的解决办法：
+&lt;/h2>&lt;p>回到自己电脑上&lt;/p>
+&lt;p>把本地的代码回退到重复之前的那个版本
+通过 &lt;code>git log&lt;/code> 找到重复前的那个版本。
+然后回退到那个版本&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>git reset 对应版本的id
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这时候本地修改的代码就会回到未提交的状态，这时候先把改的代码复制一份出来，避免操作失误找不到了就尴尬了。
+再通过&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>git checkout .
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>把放弃本地修改。&lt;/p>
+&lt;p>然后重点来了，给项目加一个上游地址。
+先看一下当前的分支&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>git remote -v
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>origin git@github.com:lqxhub/pika.git &lt;span style="color:#ff79c6">(&lt;/span>fetch&lt;span style="color:#ff79c6">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span>origin git@github.com:lqxhub/pika.git &lt;span style="color:#ff79c6">(&lt;/span>push&lt;span style="color:#ff79c6">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>此时只有自己fork后的仓库。
+现在要给fork后的仓库，加一个上游地址，也就是指定这个仓库是从哪里fork来的&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>git remote add upstream https://github.com/OpenAtomFoundation/pika.git
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>upstream &lt;/code>后面跟上源仓库地址
+现在来看看分支器情况&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>git remote -v
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>origin git@github.com:lqxhub/pika.git &lt;span style="color:#ff79c6">(&lt;/span>fetch&lt;span style="color:#ff79c6">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>origin git@github.com:lqxhub/pika.git &lt;span style="color:#ff79c6">(&lt;/span>push&lt;span style="color:#ff79c6">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>upstream https://github.com/OpenAtomFoundation/pika.git &lt;span style="color:#ff79c6">(&lt;/span>fetch&lt;span style="color:#ff79c6">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span>upstream https://github.com/OpenAtomFoundation/pika.git &lt;span style="color:#ff79c6">(&lt;/span>push&lt;span style="color:#ff79c6">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>到这上游仓库已经加好了&lt;/p>
+&lt;p>然后执行&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>git fetch upstream
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>同步上游仓库到本地&lt;/p>
+&lt;p>等代码同步完成&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>git branch -a
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>看一下当前的分支情况&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>* master
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> remotes/origin/HEAD -&amp;gt; origin/master
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> remotes/origin/master
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> remotes/upstream/2.3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> remotes/upstream/3.0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> remotes/upstream/3.0.16
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> remotes/upstream/3.2.9_beta_rocksdb5.18.3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> remotes/upstream/develop
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> remotes/upstream/master
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> remotes/upstream/pika_codis
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这时候就能看到很多分支了，然后把自己本地的代码rebase到想要的分支，一般就是&lt;code>remote/upstream/master&lt;/code>&lt;/p>
+&lt;p>执行&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>git rebase remotes/upstream/master
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>到这，本地的代码就已经和原仓库保持同步了。注意一定是 &lt;strong>bebase&lt;/strong> 不要 &lt;strong>merge&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>核心思想就是让本地代码落后于上游仓库，然后再把本地的rebase到最新的&lt;/strong>&lt;/p>
+&lt;p>然后就正常的修改代码 &lt;code>commit&lt;/code> &lt;code>push&lt;/code>&lt;/p>
+&lt;p>&lt;strong>注意&lt;/strong> 这里push的时候要强制 push &lt;code>git push -f&lt;/code> 要不然会失败&lt;/p>
+&lt;p>最后去github上 提交 PR就好了。&lt;/p>
+&lt;p>上面说的是出错了怎么补救，再说一下应该怎么正确操作&lt;/p>
+&lt;h2 id="正确的操作">&lt;a href="#%e6%ad%a3%e7%a1%ae%e7%9a%84%e6%93%8d%e4%bd%9c" class="header-anchor">&lt;/a>正确的操作
+&lt;/h2>&lt;p>正确的操作是，每次修改代码都新建一个分支，在分支上修改代码，这样就不会带上之前的信息了。&lt;/p>
+&lt;p>或者一开始就在本地加上上游仓库地址，每次都是&lt;code>git fetch upstream&lt;/code> 然后基于&lt;code>remote/upstream/master&lt;/code>分支，在本地新建一个分支(假设新分支是 newDev)开始开发。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>git checkout -b newDev remote/upstream/master
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>新版本的git可以用&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>git switch -c newDev remote/upstream/master
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>好了，问题解决了，又可以愉快的参与开源项目了。&lt;/p></description></item></channel></rss>
