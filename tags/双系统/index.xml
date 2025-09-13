@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>双系统 on QX 的笔记</title><link>https://lqxhub.github.io/tags/%E5%8F%8C%E7%B3%BB%E7%BB%9F/</link><description>Recent content in 双系统 on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 25 Mar 2018 12:39:52 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/%E5%8F%8C%E7%B3%BB%E7%BB%9F/index.xml" rel="self" type="application/rss+xml"/><item><title>修改Ubuntu和win10双系统启动顺序</title><link>https://lqxhub.github.io/posts/fcd83655/</link><pubDate>Sun, 25 Mar 2018 12:39:52 +0000</pubDate><guid>https://lqxhub.github.io/posts/fcd83655/</guid><description>&lt;p>因为想玩Linux，遂装了Ubuntu和win10的双系统，安装还好，一切顺利，两个系统都能正常启动，但是有一点让我非常不爽。就是启动的时候Ubuntu是默认启动项，开电脑一不注意就进Ubuntu了。额，重启吧&amp;hellip;&amp;hellip;&lt;/p>
+&lt;p>默认的启动项顺序(图片是我盗的，因为我的已经改了)
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7c02264608790c89.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7c02264608790c89.webp" alt="grub" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>有没有办法能改一下启动顺序呢？方法当然有了。因为用的是grub2引导，所以上网查了这方面的资料，没找到合适的，要不就是grub1的资料，要不就是治标不治本。所以本着大不了重装系统的心态，自己捣鼓&lt;/p>
+&lt;h1 id="第一种方法只更改默认选项">&lt;a href="#%e7%ac%ac%e4%b8%80%e7%a7%8d%e6%96%b9%e6%b3%95%e5%8f%aa%e6%9b%b4%e6%94%b9%e9%bb%98%e8%ae%a4%e9%80%89%e9%a1%b9" class="header-anchor">&lt;/a>第一种方法，只更改默认选项
+&lt;/h1>&lt;blockquote>
+&lt;p>首先进入 &lt;em>/etc/default&lt;/em> 目录，执行&lt;code>sudo vim grub&lt;/code>
+正常的话你看到的是这个
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-23b903b0e3106d73.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-23b903b0e3106d73.webp" alt="grub.png" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span> 6 GRUB_DEFAULT=&amp;#34;0&amp;#34;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> 7 #GRUB_HIDDEN_TIMEOUT=&amp;#34;0&amp;#34;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> 8 GRUB_HIDDEN_TIMEOUT_QUIET=&amp;#34;true&amp;#34;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> 9 GRUB_TIMEOUT=&amp;#34;10&amp;#34;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> 10 GRUB_DISTRIBUTOR=&amp;#34;`lsb_release -i -s 2&amp;gt; /dev/null || echo Debian`&amp;#34;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> 11 GRUB_CMDLINE_LINUX_DEFAULT=&amp;#34;quiet splash&amp;#34;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span> 12 GRUB_CMDLINE_LINUX=&amp;#34;&amp;#34;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>这是我们关注的内容，只需要把第6行的&lt;code>GRUB_DEFAULT=&amp;quot;0&amp;quot;&lt;/code>改成你想要默认选中的序号减去1就行，比如第一张图中，想要默认选中&lt;code>Windows boot manger&lt;/code>，修改&lt;code>GRUB_DEFAULT=&amp;quot;2&amp;quot;&lt;/code>保存，退出
+&lt;strong>然后执行关键的一步&lt;code>sudo update-grub&lt;/code>&lt;/strong>
+这样，下次开机的时候默认选中的启动项就是Windows了。&lt;/p>
+&lt;/blockquote>
+&lt;p>这样的操作对于我这种强迫症晚期的人来说是绝对不能忍的。必须把Windows boot manger 放到第一位，下面就是第二种方法&lt;/p>
+&lt;h1 id="第二种方法彻底解决">&lt;a href="#%e7%ac%ac%e4%ba%8c%e7%a7%8d%e6%96%b9%e6%b3%95%e5%bd%bb%e5%ba%95%e8%a7%a3%e5%86%b3" class="header-anchor">&lt;/a>第二种方法，彻底解决
+&lt;/h1>&lt;blockquote>
+&lt;p>首先进入*/boot/grub&lt;em>目录，先把&lt;/em>grub.cfg文件复制一份出来，以免搞坏了没法恢复。&lt;em>然后查看 &lt;em>grub.cfg&lt;/em>文件的读写权限，默认是只读的。先给&lt;/em>grub.cfg&lt;em>文件加上可写的权限。
+执行&lt;code>sudo chmod u+w grub.cfg&lt;/code> 这样能修改这个文件了。
+然后&lt;code>sudo vim grub.cfg&lt;/code>打开这个文件。然后你会发现这个文件有300多行，这怎么修改，不要慌在vim里搜索&lt;/em>menuentry* (搜索menuentry的命令是“/menuentry”)
+我的在134行。上图
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-1f808bc27f28213e.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-1f808bc27f28213e.webp" alt="menuenty.png" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;/blockquote>
+&lt;p>这时候再往下找直到找到&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#bd93f9">276&lt;/span> menuentry &lt;span style="color:#f1fa8c">&amp;#39;Windows Boot Manager (on /dev/sda1)&amp;#39;&lt;/span> &lt;span style="color:#ff79c6">--&lt;/span>&lt;span style="color:#ff79c6">class&lt;/span> windows &lt;span style="color:#ff79c6">--&lt;/span>&lt;span style="color:#ff79c6">class&lt;/span> os &lt;span style="color:#ff79c6">$&lt;/span>menuentry_id_option &lt;span style="color:#f1fa8c">&amp;#39;osprober-efi-78EE-BE29&amp;#39;&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>&lt;span style="color:#bd93f9">277&lt;/span> insmod part_gpt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#bd93f9">278&lt;/span> insmod fat
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span>&lt;span style="color:#bd93f9">279&lt;/span> set root&lt;span style="color:#ff79c6">=&lt;/span>&lt;span style="color:#f1fa8c">&amp;#39;hd0,gpt1&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>&lt;span style="color:#bd93f9">280&lt;/span> &lt;span style="color:#ff79c6">if&lt;/span> [ x&lt;span style="color:#ff79c6">$&lt;/span>feature_platform_search_hint &lt;span style="color:#ff79c6">=&lt;/span> xy ]; then
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>&lt;span style="color:#bd93f9">281&lt;/span> search &lt;span style="color:#ff79c6">--&lt;/span>no&lt;span style="color:#ff79c6">-&lt;/span>floppy &lt;span style="color:#ff79c6">--&lt;/span>fs&lt;span style="color:#ff79c6">-&lt;/span>uuid &lt;span style="color:#ff79c6">--&lt;/span>set&lt;span style="color:#ff79c6">=&lt;/span>root &lt;span style="color:#ff79c6">--&lt;/span>hint&lt;span style="color:#ff79c6">-&lt;/span>bios&lt;span style="color:#ff79c6">=&lt;/span>hd0,gpt1 &lt;span style="color:#ff79c6">--&lt;/span>hint&lt;span style="color:#ff79c6">-&lt;/span>efi&lt;span style="color:#ff79c6">=&lt;/span>hd0,gpt1 &lt;span style="color:#ff79c6">--&lt;/span>hint&lt;span style="color:#ff79c6">-&lt;/span>baremetal&lt;span style="color:#ff79c6">=&lt;/span>ahci0,gpt1 &lt;span style="color:#bd93f9">78&lt;/span>EE&lt;span style="color:#ff79c6">-&lt;/span>BE29
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>&lt;span style="color:#bd93f9">282&lt;/span> &lt;span style="color:#ff79c6">else&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>&lt;span style="color:#bd93f9">283&lt;/span> search &lt;span style="color:#ff79c6">--&lt;/span>no&lt;span style="color:#ff79c6">-&lt;/span>floppy &lt;span style="color:#ff79c6">--&lt;/span>fs&lt;span style="color:#ff79c6">-&lt;/span>uuid &lt;span style="color:#ff79c6">--&lt;/span>set&lt;span style="color:#ff79c6">=&lt;/span>root &lt;span style="color:#bd93f9">78&lt;/span>EE&lt;span style="color:#ff79c6">-&lt;/span>BE29
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>&lt;span style="color:#bd93f9">284&lt;/span> fi
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>&lt;span style="color:#bd93f9">285&lt;/span> chainloader &lt;span style="color:#ff79c6">/&lt;/span>EFI&lt;span style="color:#ff79c6">/&lt;/span>Microsoft&lt;span style="color:#ff79c6">/&lt;/span>Boot&lt;span style="color:#ff79c6">/&lt;/span>bootmgfw&lt;span style="color:#ff79c6">.&lt;/span>efi
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>&lt;span style="color:#bd93f9">286&lt;/span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>&lt;span style="color:#bd93f9">287&lt;/span> set timeout_style&lt;span style="color:#ff79c6">=&lt;/span>menu
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span>&lt;span style="color:#bd93f9">288&lt;/span> &lt;span style="color:#ff79c6">if&lt;/span> [ &lt;span style="color:#f1fa8c">&amp;#34;${timeout}&amp;#34;&lt;/span> &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span> ]; then
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span>&lt;span style="color:#bd93f9">289&lt;/span> set timeout&lt;span style="color:#ff79c6">=&lt;/span>&lt;span style="color:#bd93f9">10&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>&lt;span style="color:#bd93f9">290&lt;/span> fi
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>然后把这一段剪切，放到刚才134那个&lt;em>menuentry&lt;/em>前边。这时保存，退出。
+OK，完成了，下次开机就会发现&lt;em>Windows boot manger&lt;/em> 成为第一启动项了&lt;/p>
+&lt;/blockquote>
+&lt;p>这里&lt;strong>千万不要&lt;/strong> &lt;strong>千万不要&lt;/strong> &lt;strong>千万不要&lt;/strong> 执行&lt;code>sudo update-grub&lt;/code>&lt;/p>
+&lt;p>下次开机就是这样了
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-293181890a273082.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-293181890a273082.webp" alt="修改后的grub" />
+&lt;/a>
+&lt;/div>
+&lt;/p></description></item></channel></rss>
