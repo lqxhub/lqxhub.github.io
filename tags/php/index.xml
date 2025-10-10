@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>PHP on QX 的笔记</title><link>https://lqxhub.github.io/tags/php/</link><description>Recent content in PHP on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 29 Mar 2019 10:53:57 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/php/index.xml" rel="self" type="application/rss+xml"/><item><title>PHP处理图片(orientation)旋转问题</title><link>https://lqxhub.github.io/posts/9dd71679/</link><pubDate>Fri, 29 Mar 2019 10:53:57 +0000</pubDate><guid>https://lqxhub.github.io/posts/9dd71679/</guid><description>&lt;p>在PHP日常开发中,经常需要处理前端上传来的图片,最简单的就是保存一下,有时候需要进行一些处理,比如压缩图片,生成缩略图等等
+这些还好说,更坑的是,有时候前端上传的图片,服务端转存后,莫名其妙的旋转了90度,旋转了180度。关键是有的时候这些图片在前端显示是正常的,到服务端转存后,就出问题了,前端的同学表示不背这锅,这是你后端的问题!&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9f17c5b689dded6f.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9f17c5b689dded6f.webp" alt="" />
+&lt;/a>
+&lt;/div>
+没办法,自己解决吧
+PHP中有处理图片旋转的拓展&lt;strong>exif&lt;/strong>，要处理图片旋转问题,必须安装这个拓展，&lt;strong>exif&lt;/strong>拓展依赖&lt;strong>php_mbstring&lt;/strong>这个拓展，所以要安装这两个拓展。
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-41df6ceb4548bdd7.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-41df6ceb4548bdd7.webp" alt="exif" />
+&lt;/a>
+&lt;/div>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4d910118a84b3fc5.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4d910118a84b3fc5.webp" alt="mbstring" />
+&lt;/a>
+&lt;/div>
+在phpinfo中能看到这两个拓展,就OK了。
+如果没有安装，就需要手动安装一下了，只说Linux上怎么安装，Windows上一般都用WAMP，WAMP可以一键安装的。&lt;/p>
+&lt;p>Linux推荐使用源码安装&lt;/p>
+&lt;ol>
+&lt;li>首先下载拓展的源码，可以去官网下载，我用的php7.2，可以在这里下载https://pan.baidu.com/s/1RmgFY3bAkyK_Yu636zrx3g 提取码: pm7y&lt;/li>
+&lt;li>编译安装&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;ol>
+&lt;li>进入源码的目录&lt;/li>
+&lt;li>使用&lt;code>/usr/local/php/bin/phpize&lt;/code>命令,生成configure（假设php安装在/usr/local/php目录下）&lt;/li>
+&lt;li>使用&lt;code>./configure --with-php-config=/usr/local/php/bin/php-config&lt;/code>命令生成 Makefile文件&lt;/li>
+&lt;li>使用&lt;code>make &amp;amp;&amp;amp; make install&lt;/code>命令编译安装&lt;/li>
+&lt;li>去修改php.ini文件(可能在**/usr/local/php/etc&lt;strong>目录或者&lt;/strong>/etc/php/&lt;strong>目录下),找到 &lt;strong>extension&lt;/strong> 把&lt;code> extension=mbstring&lt;/code>和&lt;code> extension=exif&lt;/code>前面的&lt;/strong>;**去掉没有的加上这两句，把&lt;code>extension=mbstring&lt;/code>放在&lt;code>extension=exif&lt;/code>前面，保存退出&lt;/li>
+&lt;li>重启Apache或者nginx，查看phpinfo，有没有这两个拓展&lt;/li>
+&lt;/ol>
+&lt;/blockquote>
+&lt;p>准备工作OK了,可以开始写代码了，只写一下简单的逻辑代码吧&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-PHP" data-lang="PHP">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">$str&lt;/span> &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#f1fa8c">&amp;#39;文件路径&amp;#39;&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">$savePath&lt;/span>&lt;span style="color:#ff79c6">=&lt;/span>&lt;span style="color:#f1fa8c">&amp;#39;保存路径&amp;#39;&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">$image&lt;/span> &lt;span style="color:#ff79c6">=&lt;/span> imagecreatefromstring(file_get_contents(&lt;span style="color:#8be9fd;font-style:italic">$str&lt;/span>));
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">$exif&lt;/span> &lt;span style="color:#ff79c6">=&lt;/span> exif_read_data(&lt;span style="color:#8be9fd;font-style:italic">$str&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> (&lt;span style="color:#ff79c6">!&lt;/span>&lt;span style="color:#ff79c6">empty&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">$exif&lt;/span>[&lt;span style="color:#f1fa8c">&amp;#39;Orientation&amp;#39;&lt;/span>])) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> &lt;span style="color:#ff79c6">switch&lt;/span> (&lt;span style="color:#8be9fd;font-style:italic">$exif&lt;/span>[&lt;span style="color:#f1fa8c">&amp;#39;Orientation&amp;#39;&lt;/span>]) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> &lt;span style="color:#ff79c6">case&lt;/span> &lt;span style="color:#bd93f9">8&lt;/span>&lt;span style="color:#ff79c6">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">$image&lt;/span> &lt;span style="color:#ff79c6">=&lt;/span> imagerotate(&lt;span style="color:#8be9fd;font-style:italic">$image&lt;/span>, &lt;span style="color:#bd93f9">90&lt;/span>, &lt;span style="color:#bd93f9">0&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> &lt;span style="color:#ff79c6">break&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> &lt;span style="color:#ff79c6">case&lt;/span> &lt;span style="color:#bd93f9">3&lt;/span>&lt;span style="color:#ff79c6">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">$image&lt;/span> &lt;span style="color:#ff79c6">=&lt;/span> imagerotate(&lt;span style="color:#8be9fd;font-style:italic">$image&lt;/span>, &lt;span style="color:#bd93f9">180&lt;/span>, &lt;span style="color:#bd93f9">0&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> &lt;span style="color:#ff79c6">break&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> &lt;span style="color:#ff79c6">case&lt;/span> &lt;span style="color:#bd93f9">6&lt;/span>&lt;span style="color:#ff79c6">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">$image&lt;/span> &lt;span style="color:#ff79c6">=&lt;/span> imagerotate(&lt;span style="color:#8be9fd;font-style:italic">$image&lt;/span>, &lt;span style="color:#ff79c6">-&lt;/span>&lt;span style="color:#bd93f9">90&lt;/span>, &lt;span style="color:#bd93f9">0&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> &lt;span style="color:#ff79c6">break&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> imagejpeg(&lt;span style="color:#8be9fd;font-style:italic">$image&lt;/span>, &lt;span style="color:#8be9fd;font-style:italic">$savePath&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> imagedestroy(&lt;span style="color:#8be9fd;font-style:italic">$image&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>Orientation&lt;/code>中的值代表什么含义,我还没查到,等查到再补充吧，欢迎大佬评论区补充&lt;/p>
+&lt;h3 id="说一下遇到的坑">&lt;a href="#%e8%af%b4%e4%b8%80%e4%b8%8b%e9%81%87%e5%88%b0%e7%9a%84%e5%9d%91" class="header-anchor">&lt;/a>说一下遇到的坑
+&lt;/h3>&lt;ol>
+&lt;li>获取图片信息，在php7之前，用&lt;code>exif_imagetype()&lt;/code>函数，在php7以后用&lt;code>exif_read_data()&lt;/code>函数&lt;/li>
+&lt;li>一定要判断是获取到图片信息的数组中否存在&lt;code>Orientation&lt;/code>字段，因为很多图片中没有没有这个属性，或者属性为空，一点要判断&lt;/li>
+&lt;/ol></description></item><item><title>php 获取HTTP POST中不同格式的数据</title><link>https://lqxhub.github.io/posts/ba4d9bad/</link><pubDate>Thu, 27 Dec 2018 13:39:26 +0000</pubDate><guid>https://lqxhub.github.io/posts/ba4d9bad/</guid><description>&lt;p>HTTP协议中的POST 方法有多中格式的数据协议,在HTTP的head中用不同的&lt;code>Content-type&lt;/code>标识.常用的有&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;code>application/x-www-form-urlencoded&lt;/code>,这是最常见的,就是from表单的格式.在HTTP的head中是&lt;code>Content-Type: application/x-www-form-urlencoded&lt;/code>.&lt;/p>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>&lt;code>multipart/form-data&lt;/code>,这个是用来上传文件的,在HTTP的head中是&lt;code>Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW&lt;/code>&lt;/p>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>&lt;code>Raw&lt;/code> 这个不是特别常用,传输的数据在HTTP的body中只有一段,不是以键值对的形式存放.在HTTP的head中是&lt;code>Content-Type: application/json&lt;/code>,&lt;code>Content-Type: text&lt;/code>,&lt;code>Content-Type: application/xml&lt;/code>,&lt;code>Content-Type: text/xml&lt;/code>,等等形式&lt;/p>
+&lt;/blockquote>
+&lt;p>对于&lt;code>Content-Type: application/x-www-form-urlencoded&lt;/code>这种form表单的数据,在php中,使用&lt;code>$_POST['name']&lt;/code>可以直接获取, 没有什么特别的&lt;/p>
+&lt;p>&lt;code>Content-Type: multipart/form-data; &lt;/code>这种格式的数据,在php中使用&lt;code>$_POST['name']&lt;/code>可以获取字符数据,使用&lt;code>$_FILES['file']&lt;/code>可以获取.&lt;/p>
+&lt;p>对于&lt;code>Raw&lt;/code>这种格式的数据,使用以上两种办法没有办法获取到,需要使用别的手段.
+1.使用&lt;code>file_get_contents(&amp;quot;php://input&amp;quot;)&lt;/code>获取;写一个简单php文件测试一下&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-php" data-lang="php">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">&amp;lt;?&lt;/span>php
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">$test&lt;/span>&lt;span style="color:#ff79c6">=&lt;/span>file_get_contents(&lt;span style="color:#f1fa8c">&amp;#34;php://input&amp;#34;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">echo&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">$test&lt;/span>;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>用postman测试一下
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-da2f59e4f1c51f16.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-da2f59e4f1c51f16.webp" alt="" />
+&lt;/a>
+&lt;/div>
+没问题,可以接收到&lt;/p>
+&lt;p>2.使用&lt;code>$GLOBALS['HTTP_RAW_POST_DATA']&lt;/code>接收&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-php" data-lang="php">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">&amp;lt;?&lt;/span>php
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">$test&lt;/span>&lt;span style="color:#ff79c6">=&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">$GLOBALS&lt;/span>[&lt;span style="color:#f1fa8c">&amp;#39;HTTP_RAW_POST_DATA&amp;#39;&lt;/span>];
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">echo&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">$test&lt;/span>;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>用postman测试一下
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-96ec2d127bfb979e.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-96ec2d127bfb979e.webp" alt="" />
+&lt;/a>
+&lt;/div>
+卧槽,竟然出错了,提示没有发现&lt;strong>HTTP_RAW_POST_DATA&lt;/strong>这个数组索引,什么鬼.Google一番,在php的官网看到了这样一段话
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-5ab88c19311732c8.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-5ab88c19311732c8.webp" alt="" />
+&lt;/a>
+&lt;/div>
+原来&lt;strong>HTTP_RAW_POST_DATA&lt;/strong>这个在php5.6中已经被废弃了,在php7.0以后的版本中已经被删除了,我用的php版本为7.2,肯定就出错了&lt;/p>
+&lt;p>好吧,那就老老实实的用&lt;code>file_get_contents(&amp;quot;php://input&amp;quot;)&lt;/code>获取吧&lt;/p>
+&lt;p>在实际开发中,一般都是使用框架的,我用thinkphp用比较多,在tp5.0中可以使用&lt;code>Request的getInput()&lt;/code>函数获取&lt;code>Raw&lt;/code>中的数据&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-php" data-lang="php">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">&amp;lt;?&lt;/span>php
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">namespace&lt;/span> app\index\controller;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>&lt;span style="color:#ff79c6">use&lt;/span> think\Request;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>&lt;span style="color:#ff79c6">class&lt;/span> &lt;span style="color:#50fa7b">Index&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> &lt;span style="color:#ff79c6">public&lt;/span> &lt;span style="color:#ff79c6">function&lt;/span> &lt;span style="color:#50fa7b">index&lt;/span>(Request &lt;span style="color:#8be9fd;font-style:italic">$request&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> &lt;span style="color:#ff79c6">echo&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">$request&lt;/span>&lt;span style="color:#ff79c6">-&amp;gt;&lt;/span>&lt;span style="color:#50fa7b">getInput&lt;/span>();
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>测试一下
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e82d2b162d373cc9.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e82d2b162d373cc9.webp" alt="" />
+&lt;/a>
+&lt;/div>
+没有问题,可以正常获取&lt;/p>
+&lt;p>&lt;strong>关于php获取HTTP POST数据的方法先介绍到这里&lt;/strong>&lt;/p></description></item></channel></rss>
