@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Websocket on QX 的笔记</title><link>https://lqxhub.github.io/tags/websocket/</link><description>Recent content in Websocket on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 21 Oct 2018 15:57:21 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/websocket/index.xml" rel="self" type="application/rss+xml"/><item><title>nginx反向代理webSocket配置</title><link>https://lqxhub.github.io/posts/83c41ef3/</link><pubDate>Sun, 21 Oct 2018 15:57:21 +0000</pubDate><guid>https://lqxhub.github.io/posts/83c41ef3/</guid><description>&lt;p>最近在做项目的时候用到了webSocket协议,而且是在微信小程序中用到了webSocket,微信小程序中使用wss协议的时候不能设置端口,只能使用默认的443端口。
+我擦，我的https已经监听了443端口，webSocket再去监听443，肯定不行啊。要想办法解决，老大把这个问题交给我了，我愉快（手动懵逼）的接收了这个任务。想到了两种办法解决。
+一种解决办法是把webSocket部署到另一台服务器上，这样成本也太高了。另一种办法，就是使用nginx反向代理。&lt;/p>
+&lt;p>因为webSocket协议是基于http协议升级的（见下图），所以可以使用nginx反向代理webSocket.
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-0dd0a9b8d24ca99d.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-0dd0a9b8d24ca99d.webp" alt="webSocket" />
+&lt;/a>
+&lt;/div>
+从这张图片上可以看出，webSocket连接的建立是在http协议的基础上。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>GET /chat HTTP/1.1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>Host: server.example.com
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>Upgrade: websocket
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span>Connection: Upgrade
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span>Sec-WebSocket-Protocol: chat, superchat
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span>Sec-WebSocket-Version: 13
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8&lt;/span>&lt;span>Origin: http://example.com
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>熟悉HTTP的童鞋可能发现了，这段类似HTTP协议的握手请求中，只是多了几个东西。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>Upgrade: websocket
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>Connection: Upgrade
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>这个就是Websocket的核心了，告诉Apache、Nginx等服务器：我发起的是Websocket协议。
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span>Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>Sec-WebSocket-Protocol: chat, superchat
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span>Sec-WebSocket-Version: 13
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>首先，Sec-WebSocket-Key 是一个Base64 encode的值，这个是浏览器随机生成的，告诉服务器：泥煤，不要忽悠窝，我要验证尼是不是真的是Websocket助理。
+最后，Sec-WebSocket-Version 是告诉服务器所使用的Websocket Draft（协议版本），在最初的时候，Websocket协议还在 Draft 阶段，各种奇奇怪怪的协议都有，而且还有很多期奇奇怪怪不同的东西，什么Firefox和Chrome用的不是一个版本之类的，当初Websocket协议太多可是一个大难题。。不过现在还好，已经定下来啦&lt;del>大家都使用的一个东西&lt;/del>&lt;/p>
+&lt;p>然后服务器会返回下列东西，表示已经接受到请求， 成功建立Websocket啦！&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>HTTP/1.1 101 Switching Protocols
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>Upgrade: websocket
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>Connection: Upgrade
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span>Sec-WebSocket-Accept: HSmrc0sMlYUkAGmm5OPpG2HaGWk=
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>Sec-WebSocket-Protocol: chat
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这里开始就是HTTP最后负责的区域了，告诉客户，我已经成功切换协议啦~&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>Upgrade: websocket
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>Connection: Upgrade
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>依然是固定的，告诉客户端即将升级的是Websocket协议。至此，HTTP已经完成它所有工作了，接下来就是完全按照Websocket协议进行了。&lt;/p>
+&lt;p>明白协议的原理了就可以下一步了&lt;/p>
+&lt;h2 id="首先nginx先配置好https的证书">&lt;a href="#%e9%a6%96%e5%85%88nginx%e5%85%88%e9%85%8d%e7%bd%ae%e5%a5%bdhttps%e7%9a%84%e8%af%81%e4%b9%a6" class="header-anchor">&lt;/a>首先nginx先配置好https的证书
+&lt;/h2>&lt;p>服务器的证书是老大配置好的，我就直接用了。&lt;/p>
+&lt;p>在nginx配置文件的&lt;code>service&lt;/code>节点中添加如下配置&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>location /wss
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> proxy_pass http://127.0.0.1:8888;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> proxy_http_version 1.1;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> proxy_set_header Upgrade $http_upgrade;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> proxy_set_header Connection &amp;#34;Upgrade&amp;#34;;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span> proxy_set_header X-Real-IP $remote_addr;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>解释一下参数
+&lt;code>/wss&lt;/code>这个是随便起的,告诉Nginx要代理的url,现在我的设置为&lt;code>wss&lt;/code>,当我访问的我的服务器&lt;code>https://abc.com/wss&lt;/code>时,Nginx会把我的请求映射到本机的8888端口。
+&lt;code>proxy_pass&lt;/code> 要代理到的url,我的代理到本机的8888端口。
+&lt;code>proxy_http_version&lt;/code> 代理时使用的 http版本。
+&lt;strong>重点来了:&lt;/strong>
+代理webSocket的关键参数
+&lt;code>proxy_set_header Upgrade&lt;/code> 把代理时http请求头的&lt;code>Upgrade&lt;/code> 设置为原来http请求的请求头,wss协议的请求头为&lt;code>websocket&lt;/code>
+&lt;code>proxy_set_header Connection&lt;/code> 因为代理的wss协议,所以http请求头的&lt;code>Connection&lt;/code>设置为&lt;code>Upgrade&lt;/code>
+&lt;code>proxy_set_header X-Real-IP&lt;/code> 给代理设置原http请求的ip,填写&lt;code>$remote_addr&lt;/code> 即可
+至于websocket协议的response的参数，在反向代理的时候不用管。
+到这里,Nginx反向代理webSocket的配置就完成了,重启Nginx,用websocket连接试试，在原来wss地址的地方填写&lt;code>wss://abc.com/wss&lt;/code>。如果websocket成功连接,说明Nginx反向代理websocket已经成功了。&lt;/p>
+&lt;h2 id="总结">&lt;a href="#%e6%80%bb%e7%bb%93" class="header-anchor">&lt;/a>总结
+&lt;/h2>&lt;p>现在的配置只是反向代理到本机时的配置,如果要反向代理到别的主机,在代理时可能会跨域问题,需要在Nginx的反向代理中做跨域的配置。&lt;/p>
+&lt;h2 id="思考">&lt;a href="#%e6%80%9d%e8%80%83" class="header-anchor">&lt;/a>思考
+&lt;/h2>&lt;p>在Nginx的配置文件中能看到这一段&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>location ~ .php$ {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> root html;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> fastcgi_pass 127.0.0.1:9000;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> fastcgi_index index.php;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> include fastcgi_params;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这是Nginx中php的配置文件,我擦,怎么这么眼熟,这个配置清单跟刚才的websocket的反向代理这么像。通过上网查资料才知道，原来Nginx在处理php类型的请求时，把请求发fastcgi管理进程处理，fascgi管理进程选择cgi子进程处理结果并返回被nginx,而php-fpm是一个PHP FastCGI管理器,nginx本身不能处理PHP，它只是个web服务器，当接收到请求后，如果是php请求,则发给php解释器处理，并把结果返回给客户端。所以说Nginx在处理php类型的请求时,本质上也是通过反向代理功能实现的。
+我们可以把思维展开，用Nginx反向代理可以实现更多的功能，比如代理Tomcat&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>location /Tomcat
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> proxy_pass http://127.0.0.1:8080;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> proxy_http_version 1.1;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> proxy_set_header X-Real-IP $remote_addr;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>当然，也可以用Nginx反向代理实现负载均衡,这个我还没有试过,等以后用到了,再来补充&lt;/p></description></item></channel></rss>
