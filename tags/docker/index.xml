@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Docker on QX 的笔记</title><link>https://lqxhub.github.io/tags/docker/</link><description>Recent content in Docker on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 12 Apr 2020 21:24:55 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/docker/index.xml" rel="self" type="application/rss+xml"/><item><title>docker学习3-打包一个docker镜像</title><link>https://lqxhub.github.io/posts/c3d3e563/</link><pubDate>Sun, 12 Apr 2020 21:24:55 +0000</pubDate><guid>https://lqxhub.github.io/posts/c3d3e563/</guid><description>&lt;p>之前使用docker安装过mysql，使用的是别人制作好的镜像。今天使用Dockerfile自己打包一个docker的镜像。这个镜像是一个web的镜像，使用go编写。&lt;/p>
+&lt;p>go非常适合用来写docker的镜像程序，因为go编译后的二进制程序不依赖外外部库（划重点，后面会用到这个知识点），可以非常方便的打包进docker中。
+这次打包镜像会用到docker的端口映射和目录挂载这两个特性，后面用到会指出
+我的编译和打包是在linux中完成的，文中所有的介绍都是以linux系统为基础&lt;/p>
+&lt;p>先上web程序的代码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;os&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;strconv&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">const&lt;/span> BASE_DIR = &lt;span style="color:#f1fa8c">&amp;#34;./data/&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> http.&lt;span style="color:#50fa7b">HandleFunc&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;/&amp;#34;&lt;/span>, Hand)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> http.&lt;span style="color:#50fa7b">ListenAndServe&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;0.0.0.0:8088&amp;#34;&lt;/span>, &lt;span style="color:#ff79c6">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">Hand&lt;/span>(w http.ResponseWriter, r &lt;span style="color:#ff79c6">*&lt;/span>http.Request) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> query &lt;span style="color:#ff79c6">:=&lt;/span> r.URL.&lt;span style="color:#50fa7b">Query&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> one &lt;span style="color:#ff79c6">:=&lt;/span> query.&lt;span style="color:#50fa7b">Get&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;one&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> now &lt;span style="color:#ff79c6">:=&lt;/span> time.&lt;span style="color:#50fa7b">Now&lt;/span>().&lt;span style="color:#50fa7b">Unix&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> fileName &lt;span style="color:#ff79c6">:=&lt;/span> strconv.&lt;span style="color:#50fa7b">FormatInt&lt;/span>(now, &lt;span style="color:#bd93f9">10&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> file, err &lt;span style="color:#ff79c6">:=&lt;/span> os.&lt;span style="color:#50fa7b">OpenFile&lt;/span>(BASE_DIR&lt;span style="color:#ff79c6">+&lt;/span>fileName&lt;span style="color:#ff79c6">+&lt;/span>&lt;span style="color:#f1fa8c">&amp;#34;.txt&amp;#34;&lt;/span>, os.O_RDWR|os.O_CREATE, &lt;span style="color:#bd93f9">0666&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span> file.&lt;span style="color:#50fa7b">WriteString&lt;/span>(one)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span> file.&lt;span style="color:#50fa7b">Close&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span> w.&lt;span style="color:#50fa7b">Write&lt;/span>([]&lt;span style="color:#8be9fd;font-style:italic">byte&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;ok&amp;#34;&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span> } &lt;span style="color:#ff79c6">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span> w.&lt;span style="color:#50fa7b">Write&lt;/span>([]&lt;span style="color:#8be9fd;font-style:italic">byte&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;open file error,&amp;#34;&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span> w.&lt;span style="color:#50fa7b">Write&lt;/span>([]&lt;span style="color:#8be9fd;font-style:italic">byte&lt;/span>(err.&lt;span style="color:#50fa7b">Error&lt;/span>()))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>简单说一下逻辑，web会监听 &lt;strong>8080&lt;/strong> 端口，当收到客户端的请求时，会在当前目录的 &lt;strong>/data/&lt;/strong> 下创建一个 &lt;strong>当前时间戳.txt&lt;/strong> 文件，并把获取到的数据写入到文件中，并把结果返回到网页中&lt;/p>
+&lt;p>先把代码编译成可执行文件，执行 &lt;code>go build -ldflags &amp;quot;-w -s&amp;quot; main.go&lt;/code>，&lt;strong>-ldflags &amp;ldquo;-w -s&amp;rdquo;&lt;/strong> 这个参数会自动优化代码，这样编译出来的可执行文件体积会变小。
+先在本地运行一下看一下效果&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9938f7c1db83dfbb.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9938f7c1db83dfbb.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>浏览器显示正确，再看一下data目录下有没有对应的文件&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-3842121ea1f16e26.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-3842121ea1f16e26.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>文件也正常写入了，说明程序是没有问题的&lt;/p>
+&lt;p>下面开始打包docker&lt;/p>
+&lt;p>开始编写Dockerfile文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>FROM scratch
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>WORKDIR /app
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>VOLUME /app/data
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>ADD main /app
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>COPY data /app
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>EXPOSE 8088
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span>CMD [&amp;#34;/app/main&amp;#34;]
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>打包docker镜像需要在一个镜像的基础上打包，&lt;strong>scratch&lt;/strong>这个镜像是一个很特殊的镜像，是一个空的镜像，大小是0，这样我们打包出来的镜像会很小，如果使用Ubuntu作为基础镜像，打包出来的镜像体积会很大，因为Ubuntu镜像就要有60M+了。更多关于scratch可以查看&lt;a class="link" href="https://hub.docker.com/_/scratch?tab=description" target="_blank" rel="noopener"
+>这里&lt;/a>。 用到的Dockerfile命令&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>FROM&lt;/strong> 指定以哪个镜像为基础开始构建镜像&lt;/li>
+&lt;li>&lt;strong>WROKDIR&lt;/strong> 指定我们docker中的工作目录，如果这个目录不存在，会自动创建&lt;/li>
+&lt;li>&lt;strong>VOLUME&lt;/strong> 指定对外映射的目录&lt;/li>
+&lt;li>&lt;strong>ADD&lt;/strong> 将本地的文件添加到docker中&lt;/li>
+&lt;li>&lt;strong>COPY&lt;/strong> 和ADD命令相似也是将本地的文件添加到docker中&lt;/li>
+&lt;li>&lt;strong>EXPOSE&lt;/strong> 指定对外映射的端口&lt;/li>
+&lt;li>&lt;strong>CMD&lt;/strong> 在docker中执行命令，如果有多个CMD，只有最有一个生效&lt;/li>
+&lt;/ol>
+&lt;p>别的命令没什么特殊的，简单说一下&lt;strong>ADD&lt;/strong>和&lt;strong>COPY&lt;/strong>的区别，相同点都是讲文件复制到docker中，不同的是ADD命令功能更多，如果复制到文件是tar，zip等压缩文件时，ADD命令会自动解压缩，ADD还可以从网络上加载文件&lt;/p>
+&lt;p>Dockerfile文件写好了，下一步开始构建了
+使用 &lt;code> docker build -t goweb .&lt;/code>命令构建 &lt;strong>goweb&lt;/strong> 是指定构建后镜像的名字
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-da37547fb1d148db.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-da37547fb1d148db.webp" alt="build" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>没有报错,说明构建完成&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-acbc0c39546a18ea.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-acbc0c39546a18ea.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>可以在本地的镜像中看到刚才构建的镜像了，大小只有5.4M&lt;/p>
+&lt;p>有了镜像开始创建容器
+现在用户目录下新建一个 &lt;strong>go_web&lt;/strong> 目录
+使用&lt;code>docker run -idt --name goweb -v ~/go_web:/app/data -p 8088:8088 goweb&lt;/code>命令创建容器
+之前的文章已经介绍过了，不在赘述了，文章 &lt;a class="link" href="https://lqxhub.github.io/posts/dff1cc87/" >传送门&lt;/a>
+看一下容器的运行情况&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-2631426b950c6825.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-2631426b950c6825.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>what，为啥容器退出了，应该是出错了，看一下错误&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b4a39ec17c07d82c.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b4a39ec17c07d82c.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>还记得前面画的重点吗，go编译后的二进制程序不依赖外外部库，其实这句话是错误的
+看一下刚才编译的程序依赖那些外部库&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-c74257a003a08453.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-c74257a003a08453.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>现在的main文件依赖4个外部文件，因为我们是基于&lt;strong>scratch&lt;/strong>打包的，scratch是一个空白的镜像，没有这些文件，所以运行就报错了。有两种解决办法&lt;/p>
+&lt;ol>
+&lt;li>使用Ubuntu等有这些库的基础镜像，但是这样会增加打包后镜像的体积，很显然不划算&lt;/li>
+&lt;li>使用静态编译，把这些库编译进main文件中&lt;/li>
+&lt;/ol>
+&lt;p>重新编译go文件
+先把原来的main改一个名字&lt;code>mv main main2&lt;/code>
+重新编译&lt;code>CGO_ENABLED=0 go build -ldflags &amp;quot;-w -s&amp;quot; main.go&lt;/code> &lt;strong>CGO_ENABLED=0&lt;/strong> 指定为静态编译
+现在看一下main的外部依赖&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-d55296460cc8e327.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-d55296460cc8e327.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>现在的main不依赖外部文件了
+把之前的docker镜像和容器都删掉，重新打包docker，重新生成容器&lt;/p>
+&lt;p>现在看一下
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-ccd65dbbf05053cd.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-ccd65dbbf05053cd.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>容器已经运行了，并且完成了端口映射
+在浏览器中试一下&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-ee3636371f5eb43e.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-ee3636371f5eb43e.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>看一下&lt;strong>go_web&lt;/strong>目录&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-3a7115fb870c33f9.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-3a7115fb870c33f9.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>在go_web目录中已经创建了文件，并且内容也正确写入了&lt;/p>
+&lt;p>到这，自己打包docker镜像就完成了。&lt;/p></description></item><item><title>docker学习2-docker基本命令</title><link>https://lqxhub.github.io/posts/dff1cc87/</link><pubDate>Sat, 04 Apr 2020 18:03:39 +0000</pubDate><guid>https://lqxhub.github.io/posts/dff1cc87/</guid><description>&lt;p>操作docker容器，和操作linux差不多，都是使用命令行操作。不同的是，操作docker需要使用docker的命令。docker的命令和linux的命令很多相似的，也有一些不同。废话不多说，开始学习。docker命令分为镜像相关，容器生命周期相关，容器操作相关，仓库相关等一系列命令。是用docker命令时，前要加上 &lt;strong>docker&lt;/strong> ，比如查看docker版本，在终端输入 &lt;code>docker version&lt;/code>&lt;/p>
+&lt;h5 id="版本相关">&lt;a href="#%e7%89%88%e6%9c%ac%e7%9b%b8%e5%85%b3" class="header-anchor">&lt;/a>版本相关
+&lt;/h5>&lt;ol>
+&lt;li>
+&lt;p>&lt;strong>version&lt;/strong> 查看docker的版本，能看到docker的client和server的版本
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-d96d5ffd0240b672.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-d96d5ffd0240b672.webp" alt="version" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>info&lt;/strong> 显示 Docker 系统信息，包括镜像和容器数。
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-a0e1bf22c4a18bf3.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-a0e1bf22c4a18bf3.webp" alt="info" />
+&lt;/a>
+&lt;/div>
+可以看到，有两个容器，一个运行中一个停止。本地还有两个镜像&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h5 id="本地镜像相关操作">&lt;a href="#%e6%9c%ac%e5%9c%b0%e9%95%9c%e5%83%8f%e7%9b%b8%e5%85%b3%e6%93%8d%e4%bd%9c" class="header-anchor">&lt;/a>本地镜像相关操作
+&lt;/h5>&lt;ol>
+&lt;li>
+&lt;p>&lt;strong>images&lt;/strong> 查看本地所有镜像
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e3677fd94908cbda.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e3677fd94908cbda.webp" alt="images" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>rmi&lt;/strong> 删除本地一个或多少镜像。这个命令和linux的rm命令很像，可以使用 -f 强制删除&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>tag&lt;/strong> 为本地镜像打一个标签，可以理解为重命名。
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b542e6bc61eedf19.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b542e6bc61eedf19.webp" alt="tag" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>可以看到，使用tag命令给mysql加了一个标签，两个镜像的id是相同的，说明还是同一个镜像。使用&lt;strong>rmi&lt;/strong>命令删除一个，另一个不受影响。&lt;/p>
+&lt;ol start="4">
+&lt;li>
+&lt;p>&lt;strong>build&lt;/strong> 命令用于使用 Dockerfile 创建镜像。这个命令比较复杂，有很多参数，而且需要配合Dockerfile文件使用&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>history&lt;/strong> 查看指定镜像的创建历史。&lt;/p>
+&lt;ul>
+&lt;li>-H :以可读的格式打印镜像大小和日期，默认为true；&lt;/li>
+&lt;li>&amp;ndash;no-trunc :显示完整的提交记录；&lt;/li>
+&lt;li>-q :仅列出提交记录ID。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>save&lt;/strong> 将本地的容器保存为一个文件。
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b8c020279ebd4860.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b8c020279ebd4860.webp" alt="save" />
+&lt;/a>
+&lt;/div>
+已经把本地的redis 镜像保存到了当前目录&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>load&lt;/strong> 导入使用 &lt;strong>save&lt;/strong> 命令导出的镜像。
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e53de37c06b88626.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e53de37c06b88626.webp" alt="load" />
+&lt;/a>
+&lt;/div>
+我们先把本地的redis镜像删除，再通过load命令把刚才导出的redis镜像再导入&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>import&lt;/strong> 也是从本地文件导入镜像。和&lt;strong>load&lt;/strong> 不同的是，&lt;strong>import&lt;/strong> 命令需要指定导入后的镜像的name和tag
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-dee770184a3c63b6.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-dee770184a3c63b6.webp" alt="import" />
+&lt;/a>
+&lt;/div>
+先把原有的redis镜像删掉，再使用&lt;strong>import&lt;/strong>命名导入镜像，并指定name和tag。一般&lt;strong>import&lt;/strong>命令配合&lt;strong>export&lt;/strong>命令使用&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h5 id="容器仓库相关">&lt;a href="#%e5%ae%b9%e5%99%a8%e4%bb%93%e5%ba%93%e7%9b%b8%e5%85%b3" class="header-anchor">&lt;/a>容器仓库相关
+&lt;/h5>&lt;ol>
+&lt;li>
+&lt;p>&lt;strong>search&lt;/strong> 在远程仓库中搜索相关的镜像。
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-99bd8e282f018e1c.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-99bd8e282f018e1c.webp" alt="search" />
+&lt;/a>
+&lt;/div>
+在远程仓库中搜索mysql相关的镜像&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>pull&lt;/strong> 从远程仓库拉取镜像到本地，比如拉取mysql命令， &lt;code>docker pull mysql&lt;/code>&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h5 id="容器生命周期相关">&lt;a href="#%e5%ae%b9%e5%99%a8%e7%94%9f%e5%91%bd%e5%91%a8%e6%9c%9f%e7%9b%b8%e5%85%b3" class="header-anchor">&lt;/a>容器生命周期相关
+&lt;/h5>&lt;ol>
+&lt;li>
+&lt;p>&lt;strong>run&lt;/strong> 创建一个新的容器并运行；run命令有很多参数，挑几个常用的介绍一个&lt;/p>
+&lt;ul>
+&lt;li>-d: 后台运行容器，并返回容器ID;&lt;/li>
+&lt;li>-i: 以交互模式运行容器，通常与 -t 同时使用；&lt;/li>
+&lt;li>-t: 为容器重新分配一个伪输入终端，通常与 -i 同时使用；&lt;/li>
+&lt;li>&amp;ndash;name=&amp;ldquo;nginx-lb&amp;rdquo;: 为容器指定一个名称；注意这个前面是 &lt;strong>&amp;ndash;&lt;/strong>&lt;/li>
+&lt;li>-e: 设置环境变量；在用docker启动mysql的时候，会用到环境变量设置mysql的密码&lt;/li>
+&lt;li>-P: 随机端口映射，容器内部端口随机映射到主机的高端口，大写的P；&lt;/li>
+&lt;li>-p: 指定端口映射，格式为：主机(宿主)端口:容器端口；比如使用docker运行nginx时，将容器的nginx80端口映射到主机的8080端口；-p 8080:80&lt;/li>
+&lt;li>-m :设置容器使用内存最大值；&lt;/li>
+&lt;li>&amp;ndash;volume , -v: 将主机上的目录挂载到容器内；格式为：主机目录:容器内的目录
+以运行mysql为例，
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-481e52e6e6ba3d9d.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-481e52e6e6ba3d9d.webp" alt="run" />
+&lt;/a>
+&lt;/div>
+运行一个mysql容器，重命名为my_mysql，将容器的3306端口映射到主机的3366端口，并将mysql的存储目录*/var/lib/mysql* 挂载到&lt;em>用户目录的mysql_data&lt;/em>目录下&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>start&lt;/strong> 启动一个容器，可以使用容器的id也可以使用容器的name&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>stop&lt;/strong> 停止一个容器&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>restart&lt;/strong> 重启一个容器&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>kill&lt;/strong> 杀死一个容器，和linux的kill命令很像，可以使用容器的name操作&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>pause&lt;/strong> 暂停容器中所有的进程。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>unpause&lt;/strong> 恢复容器暂停的进程。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>create&lt;/strong> 创建一个容器,但是不启动这个容器&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>exec&lt;/strong> 在运行的容器中执行命令。可以看做是进入到这个容器中。&lt;/p>
+&lt;ul>
+&lt;li>-d :分离模式: 在后台运行&lt;/li>
+&lt;li>-i :默认打开，没有附加也保持STDIN 打开&lt;/li>
+&lt;li>-t :分配一个伪终端
+使用命令 &lt;code>docker exec -it redis&lt;/code> 进入name为redis 的容器中&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ol>
+&lt;h5 id="容器操作相关">&lt;a href="#%e5%ae%b9%e5%99%a8%e6%93%8d%e4%bd%9c%e7%9b%b8%e5%85%b3" class="header-anchor">&lt;/a>容器操作相关
+&lt;/h5>&lt;ol>
+&lt;li>
+&lt;p>&lt;strong>ps&lt;/strong> 列出当前机器上的容器&lt;/p>
+&lt;ul>
+&lt;li>-a:列出所有的容器，包括没有运行的容器&lt;/li>
+&lt;li>-f :根据条件过滤显示的内容&lt;/li>
+&lt;li>-n :列出最近创建的n个容器&lt;/li>
+&lt;li>-q :静默模式，只显示容器编号&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>top&lt;/strong> 查看容器中运行的进程信息，支持 ps 命令参数。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>logs&lt;/strong> 获取容器的日志&lt;/p>
+&lt;ul>
+&lt;li>-f : 跟踪日志输出，和linux的 &lt;strong>tail&lt;/strong> 的-f效果相同&lt;/li>
+&lt;li>&amp;ndash;since :显示某个开始时间的所有日志&lt;/li>
+&lt;li>-t : 显示时间戳&lt;/li>
+&lt;li>&amp;ndash;tail :仅列出最新N条容器日志&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>**port ** 列出指定的容器的端口映射，或者查找将PRIVATE_PORT NAT到面向公众的端口。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>export&lt;/strong> 将容器导出为一个文件，和&lt;strong>save&lt;/strong>命令相似，但是&lt;strong>save&lt;/strong>命令操作的是镜像，&lt;strong>export&lt;/strong>操作的是容器。&lt;strong>save&lt;/strong>保存的文件没有丢失镜像的历史，可以回滚到之前。&lt;strong>export&lt;/strong> 保存的文件再导入时会丢失镜像所有的历史，所以无法进行回滚
+使用命令 &lt;code>docker export name &amp;gt; filename&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>commit&lt;/strong> 从指定容器创建一个新的镜像。&lt;/p>
+&lt;ul>
+&lt;li>-a :提交的镜像作者&lt;/li>
+&lt;li>-c :使用Dockerfile指令来创建镜像&lt;/li>
+&lt;li>-m :提交时的说明文字&lt;/li>
+&lt;li>-p :在commit时，将容器暂停
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-530a81457c569856.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-530a81457c569856.webp" alt="commit" />
+&lt;/a>
+&lt;/div>
+将&lt;strong>mariadb&lt;/strong> 容器生成一个新的镜像&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>cp&lt;/strong> 在宿主机和容器之间复制文件。
+将 &lt;em>a.txt&lt;/em> 复制到 name为 &lt;em>mysql&lt;/em> 容器的 &lt;em>var&lt;/em> 目录 &lt;code>docker cp a.txt redis:/var&lt;/code>&lt;/p>
+&lt;/li>
+&lt;/ol></description></item><item><title>docker学习1-基本概念</title><link>https://lqxhub.github.io/posts/79efdaf8/</link><pubDate>Thu, 02 Apr 2020 19:56:27 +0000</pubDate><guid>https://lqxhub.github.io/posts/79efdaf8/</guid><description>&lt;p>docker是当下是用的最多的虚拟化技术，那必须要学习一波。学习之前先搞清楚三个问题&lt;/p>
+&lt;ol>
+&lt;li>什么是docker&lt;/li>
+&lt;li>docker解决了工作中的那些问题&lt;/li>
+&lt;li>理清楚docker中的几个概念&lt;/li>
+&lt;/ol>
+&lt;h4 id="什么是docker">&lt;a href="#%e4%bb%80%e4%b9%88%e6%98%afdocker" class="header-anchor">&lt;/a>什么是docker
+&lt;/h4>&lt;p>先解决第一个问题，docker到底是个啥玩意。docker是一种&lt;strong>虚拟化&lt;/strong>技术，通俗的讲，docker类似一个虚拟机，可以虚拟出一个主机。在docker中，每个容器相互隔离，容器内的程序不能跨容器直接交互。容器之间可以通过网络或者共享文件交互。但是docker不是虚拟机，docker与虚拟机相比，docker是轻量级的，可以做到秒级启动，docker占用的系统开销也是很低的。用过虚拟的都知道，虚拟机启动很慢，而且会占用宿主机很大的内存和cpu资源。使用docker，几乎感觉不到docker的存在。&lt;/p>
+&lt;h4 id="docker解决了工作中的那些问题">&lt;a href="#docker%e8%a7%a3%e5%86%b3%e4%ba%86%e5%b7%a5%e4%bd%9c%e4%b8%ad%e7%9a%84%e9%82%a3%e4%ba%9b%e9%97%ae%e9%a2%98" class="header-anchor">&lt;/a>docker解决了工作中的那些问题
+&lt;/h4>&lt;p>docker解决了工作中的那些问题。很多时候，由于开发环境和线上环境是不同的，比如在windows下开发，程序最终部署到linux上。很多时候，会因为依赖库的问题，导致程序运行报错。java，php，C++等这些程序，在开发环境中是正常的。但是在运行环境中，由于缺失运行所依赖的库，导致程序报错或者无法运行。当你费劲九牛二虎之力配置好运行环境时，老板告诉你，还有100台服务器需要配置，你是不是瞬间就奔溃了。&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4266369a762ff268.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4266369a762ff268.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>使用docker就可以解决这个问题。只需要把要部署的程序打包成一个docker的镜像，然后在用docker把镜像生成容器，使用容器运行。再也不用配置运行环境了，不管有多少台机器，只需要把docker镜像导入，就可以非常简单的部署一台机器。docker为啥能做到呢，其实这个打包成镜像的过程，已经把运行程序必备的一些库，全都打包进镜像中了，当程序在容器中运行时，就不会因为环境的问题导致报错了。&lt;/p>
+&lt;h4 id="docker中的几个概念">&lt;a href="#docker%e4%b8%ad%e7%9a%84%e5%87%a0%e4%b8%aa%e6%a6%82%e5%bf%b5" class="header-anchor">&lt;/a>docker中的几个概念
+&lt;/h4>&lt;ol>
+&lt;li>&lt;strong>镜像&lt;/strong>(Images)：镜像是一个文件，是用镜像文件可以创建容器。比如我们装系统时，会用到windows的系统镜像，一般是一个**.iso** 文件，docker中的镜像这就是一个类似的文件。&lt;/li>
+&lt;li>&lt;strong>容器&lt;/strong>(Container)： 容器是一个可以通过docker运行的实例，像我们装机完成后的系统一样。&lt;/li>
+&lt;li>&lt;strong>仓库&lt;/strong>(Repository)：仓库是一个存放docker镜像的网站，类似一个网盘，这里保存着很多镜像，可以通过网络下载这些镜像&lt;/li>
+&lt;li>&lt;strong>主机&lt;/strong>(Host)：一个物理机或者虚拟机，比如我们的电脑、云服务器。用于执行 Docker 守护进程和容器&lt;/li>
+&lt;li>&lt;strong>客户端&lt;/strong>(CLient)：Docker 客户端通过命令行与 Docker 的守护进程通信。就是我们操作docker的工具&lt;/li>
+&lt;/ol>
+&lt;hr>
+&lt;p>总结一下，镜像可以看做是面向对象中的 &lt;strong>类&lt;/strong>，容器就是 &lt;strong>对象&lt;/strong>，同样的，一个镜像也可以创建多个容器&lt;/p>
+&lt;p>至于怎么安装docker，网上教程太多了，就不赘述了。建议在linux上安装docker，没有linux的可以在windows中装一个虚拟机，虚拟机装linux，然后在装docker。我就是这样弄的。&lt;/p></description></item></channel></rss>

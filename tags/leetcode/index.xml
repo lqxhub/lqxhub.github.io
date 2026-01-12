@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>LeetCode on QX 的笔记</title><link>https://lqxhub.github.io/tags/leetcode/</link><description>Recent content in LeetCode on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 21 May 2022 16:56:04 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/leetcode/index.xml" rel="self" type="application/rss+xml"/><item><title>链表排序，LeetCode链表排序，golang链表归并排序 - QX's blog</title><link>https://lqxhub.github.io/posts/f8e89faa/</link><pubDate>Sat, 21 May 2022 16:56:04 +0000</pubDate><guid>https://lqxhub.github.io/posts/f8e89faa/</guid><description>&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images/blog/02F73302CA875C38.jpg" alt="Featured image of post 链表排序，LeetCode链表排序，golang链表归并排序 - QX's blog" />&lt;p>一直以来算法题刷的比较少，算法这块算是我的弱项。前几天，看到一个挺有意思的链表题&lt;/p>
+&lt;h2 id="原题">&lt;a href="#%e5%8e%9f%e9%a2%98" class="header-anchor">&lt;/a>原题
+&lt;/h2>&lt;p>原题是这样的，给一个链表 &lt;code>[1,2,3,4,5]&lt;/code> 然后转换成 &lt;code>[5,3,1,2,4]&lt;/code> 这种格式
+找一下规律，其实就是第一个先拿第一个元素，然后把第二个元素放在新的链表后面，第三个元素放在新的链表前面，然后第四个放在新链表的后面，第五个放在新链表前面，以此类推。&lt;/p>
+&lt;p>其实就是一个链表头插和尾插的结合嘛&lt;/p>
+&lt;p>直接上代码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">type&lt;/span> Node &lt;span style="color:#8be9fd;font-style:italic">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> Next &lt;span style="color:#ff79c6">*&lt;/span>Node
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> Val &lt;span style="color:#8be9fd">int&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>&lt;span style="color:#6272a4">//通过数组生成链表
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">Make&lt;/span>(nums []&lt;span style="color:#8be9fd">int&lt;/span>) &lt;span style="color:#ff79c6">*&lt;/span>Node {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> head &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#ff79c6">&amp;amp;&lt;/span>Node{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> move &lt;span style="color:#ff79c6">:=&lt;/span> head
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> _, num &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#ff79c6">range&lt;/span> nums {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> t &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#ff79c6">&amp;amp;&lt;/span>Node{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> Val: num,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> move.Next = t
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> move = move.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> head.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span>&lt;span style="color:#6272a4">//打印链表
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">Print&lt;/span>(list &lt;span style="color:#ff79c6">*&lt;/span>Node) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> h &lt;span style="color:#ff79c6">:=&lt;/span> list; h &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span>; h = h.Next {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Printf&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;%d &amp;#34;&lt;/span>, h.Val)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35&lt;/span>&lt;span> nums &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">make&lt;/span>([]&lt;span style="color:#8be9fd">int&lt;/span>, &lt;span style="color:#bd93f9">5&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> i &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#bd93f9">1&lt;/span>; i &lt;span style="color:#ff79c6">&amp;lt;=&lt;/span> &lt;span style="color:#bd93f9">5&lt;/span>; i&lt;span style="color:#ff79c6">++&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37&lt;/span>&lt;span> nums[i&lt;span style="color:#ff79c6">-&lt;/span>&lt;span style="color:#bd93f9">1&lt;/span>] = i
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39&lt;/span>&lt;span> nodes &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#50fa7b">Make&lt;/span>(nums)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40&lt;/span>&lt;span> &lt;span style="color:#50fa7b">Print&lt;/span>(nodes)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41&lt;/span>&lt;span> nodes = &lt;span style="color:#50fa7b">TurnList&lt;/span>(nodes)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42&lt;/span>&lt;span> &lt;span style="color:#50fa7b">Print&lt;/span>(nodes)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45&lt;/span>&lt;span>&lt;span style="color:#6272a4">//转换链表
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">TurnList&lt;/span>(list &lt;span style="color:#ff79c6">*&lt;/span>Node) &lt;span style="color:#ff79c6">*&lt;/span>Node {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47&lt;/span>&lt;span> i &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48&lt;/span>&lt;span> h &lt;span style="color:#ff79c6">:=&lt;/span> list
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49&lt;/span>&lt;span> t &lt;span style="color:#ff79c6">:=&lt;/span> list
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">50&lt;/span>&lt;span> list = list.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">51&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> list &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">52&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> i&lt;span style="color:#ff79c6">%&lt;/span>&lt;span style="color:#bd93f9">2&lt;/span> &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">53&lt;/span>&lt;span> t.Next = list
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">54&lt;/span>&lt;span> list = list.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">55&lt;/span>&lt;span> t = t.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">56&lt;/span>&lt;span> t.Next = &lt;span style="color:#ff79c6">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">57&lt;/span>&lt;span> } &lt;span style="color:#ff79c6">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">58&lt;/span>&lt;span> x &lt;span style="color:#ff79c6">:=&lt;/span> list.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">59&lt;/span>&lt;span> list.Next = h
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">60&lt;/span>&lt;span> h = list
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">61&lt;/span>&lt;span> list = x
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">62&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">63&lt;/span>&lt;span> i&lt;span style="color:#ff79c6">++&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">64&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">65&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> h
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">66&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>初始链表如图：
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-2a170216963b147b.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-2a170216963b147b.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>变换过程：
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-d04c853f0c91a1c0.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-d04c853f0c91a1c0.webp" alt="" />
+&lt;/a>
+&lt;/div>
+就是样根据奇偶分别头插和尾插就能完成
+这么简单当时就是没写出来。 淦&lt;/p>
+&lt;p>只写这一个也抬不过瘾了，再来一个链表排序的 &lt;a class="link" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/https://leetcode.cn/problems/sort-list/" target="_blank" rel="noopener"
+>leetcode 148&lt;/a>&lt;/p>
+&lt;h2 id="链表排序">&lt;a href="#%e9%93%be%e8%a1%a8%e6%8e%92%e5%ba%8f" class="header-anchor">&lt;/a>链表排序
+&lt;/h2>&lt;p>排序的方法有好多，但是我感觉适合用于链表的是 &lt;strong>插入排序&lt;/strong> 和 &lt;strong>归并排序&lt;/strong> 尤其是归并排序，简直就是为链表定做的。&lt;/p>
+&lt;h3 id="先来一个简单的插入排序吧">&lt;a href="#%e5%85%88%e6%9d%a5%e4%b8%80%e4%b8%aa%e7%ae%80%e5%8d%95%e7%9a%84%e6%8f%92%e5%85%a5%e6%8e%92%e5%ba%8f%e5%90%a7" class="header-anchor">&lt;/a>先来一个简单的，插入排序吧
+&lt;/h3>&lt;p>插入排序的思想就是选择一个基准，然后把整个序列中的比自己小的放到基准的前面，用数组的形式还是很好理解和操作的。但是链表不能随机访问，所以不能用数组那样的插入排序了，需要做一下变换，看起来有点像是选择排序和插入排序的结合。
+不废话了，直接上代码，插入排序：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">InsertSort&lt;/span>(list &lt;span style="color:#ff79c6">*&lt;/span>Node) &lt;span style="color:#ff79c6">*&lt;/span>Node {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> head &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#ff79c6">&amp;amp;&lt;/span>Node{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> Next: list,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> h &lt;span style="color:#ff79c6">:=&lt;/span> head
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> h.Next &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> t &lt;span style="color:#ff79c6">:=&lt;/span> h
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> t.Next &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> t.Next.Val &amp;lt; h.Next.Val {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> x &lt;span style="color:#ff79c6">:=&lt;/span> t.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> t.Next = t.Next.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> x.Next = h.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> h.Next = x
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> } &lt;span style="color:#ff79c6">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> t = t.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> h = h.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> head.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>无序的链表&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-55dfdacfe5e27308.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-55dfdacfe5e27308.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>排序过程
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-03d5c37f8538b13f.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-03d5c37f8538b13f.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>图中有个迷惑的地方，就是蓝色的线是 &lt;code>next&lt;/code> 指针的指向，就是一开始的时候，&lt;code>head&lt;/code> &lt;code>h&lt;/code> &lt;code>t&lt;/code> 的next指针指向 &lt;strong>3&lt;/strong>
+也就是 &lt;code>h&lt;/code> &lt;code>t&lt;/code>自身是指向 &lt;code>head&lt;/code>的，head是一开始的时候，新建的一个临时结点，因为单向链表无法向前查找，只能向后查找，所以要用 &lt;code>next&lt;/code> 指针。
+同样，在使用 &lt;code>t&lt;/code> 和 &lt;code>h&lt;/code> 指针的时候，也都是使用 &lt;code>next&lt;/code> 用来判断。
+比较逻辑 &lt;code>t.Next.Val &amp;lt; h.Next.Val&lt;/code> 当 &lt;code>t&lt;/code>的 &lt;code>next&lt;/code> 是 &lt;strong>3&lt;/strong>，&lt;code>h&lt;/code>的 &lt;code>next&lt;/code> 是 &lt;strong>2&lt;/strong> 时,满足条件，所以交换 &lt;strong>2&lt;/strong> 和 &lt;strong>3&lt;/strong>
+如此往复，当 &lt;code>t&lt;/code> 走完一趟后，链表中的第一个结点就是最小的了。
+当 &lt;code>t&lt;/code> 走完一趟后，h指针要后移一个。以此类推，直到 &lt;code>h&lt;/code> 和 &lt;code>t&lt;/code> 都走完后，就完成了排序。&lt;/p>
+&lt;p>这个排序方法用的是插入排序的思想加上一些选择排序的方法完成的，时间复杂度还是O(n²)。是稳定的排序。&lt;/p>
+&lt;h3 id="归并排序">&lt;a href="#%e5%bd%92%e5%b9%b6%e6%8e%92%e5%ba%8f" class="header-anchor">&lt;/a>归并排序
+&lt;/h3>&lt;p>相比插入排序和选择排序，归并排序就要复杂一些了&lt;/p>
+&lt;p>归并排序的思想是分治法，把整个序列拆分，当拆分到不能再拆分时，子序列就是有序的了。也就是当序列长度是1的时候，序列就是有序的。然后在把子序列有序的合并起来。&lt;/p>
+&lt;p>归并排序简直就是为了链表排序而生的。如果用数组排序，拆分和重组还是比较复杂的，链表就简单多了。说实话，数组的归并排序我都不会写。&lt;/p>
+&lt;p>线上代码，归并排序&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">MergerSort&lt;/span>(list &lt;span style="color:#ff79c6">*&lt;/span>Node) &lt;span style="color:#ff79c6">*&lt;/span>Node {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> list &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> &lt;span style="color:#ff79c6">||&lt;/span> list.Next &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> list
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> fast &lt;span style="color:#ff79c6">:=&lt;/span> list.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> slow &lt;span style="color:#ff79c6">:=&lt;/span> list
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> fast &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> &lt;span style="color:#ff79c6">&amp;amp;&amp;amp;&lt;/span> fast.Next &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> fast = fast.Next.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> slow = slow.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> h1 &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#50fa7b">MergerSort&lt;/span>(slow.Next)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> slow.Next = &lt;span style="color:#ff79c6">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> h2 &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#50fa7b">MergerSort&lt;/span>(list)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> &lt;span style="color:#50fa7b">Merge&lt;/span>(h1, h2)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">Merge&lt;/span>(list1, list2 &lt;span style="color:#ff79c6">*&lt;/span>Node) &lt;span style="color:#ff79c6">*&lt;/span>Node {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> head &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#ff79c6">&amp;amp;&lt;/span>Node{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> h &lt;span style="color:#ff79c6">:=&lt;/span> head
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> list1 &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> &lt;span style="color:#ff79c6">&amp;amp;&amp;amp;&lt;/span> list2 &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> list1.Val &amp;lt; list2.Val {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span> h.Next = list1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span> list1 = list1.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span> } &lt;span style="color:#ff79c6">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span> h.Next = list2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span> list2 = list2.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31&lt;/span>&lt;span> h = h.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> list1 &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34&lt;/span>&lt;span> h.Next = list1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35&lt;/span>&lt;span> } &lt;span style="color:#ff79c6">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36&lt;/span>&lt;span> h.Next = list2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> head.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>归并排序有两个部分，一个是拆分，另一个是合并。&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>拆分
+拆分是二分法，也就是每次从中间分开。链表中找到中间位置，最方便的就是快慢指针了，就是一个指针每次移动一个位置，指针每次移动两个位置。当快的指针移动到最后的时候，慢的指针正好移动到链表的中间位置。递归拆分，直到链表长度是1的时候，就完成了拆分。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>合并
+合并的过程其实就是合并两个有序链表。&lt;a class="link" href="https://leetcode.cn/problems/merge-two-sorted-lists/" target="_blank" rel="noopener"
+>leetcode 21&lt;/a> 很简单没什么需要解释的。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-0409bcd8c06825d0.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-0409bcd8c06825d0.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>简单的把排序过程花了出来。&lt;/p>
+&lt;p>整个归并排序，不好理解的地方就是递归拆分的过程，其实也不难理解，就是能拆的情况下就一直拆，直到不能拆了为止。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span> fast &lt;span style="color:#ff79c6">:=&lt;/span> list.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> slow &lt;span style="color:#ff79c6">:=&lt;/span> list
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> fast &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> &lt;span style="color:#ff79c6">&amp;amp;&amp;amp;&lt;/span> fast.Next &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> fast = fast.Next.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> slow = slow.Next
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>当一次拆分完成时，&lt;code>slow&lt;/code> 指针指向的就是链表的中间位置，所以 &lt;code>slow&lt;/code> 的 &lt;code>next&lt;/code> 就是链表的后半部分了，&lt;code>list&lt;/code> 指针就是链表的前半部分。&lt;/p>
+&lt;p>拆分的过程中有个地方需要注意，就是断链，&lt;code>slow.Next = nil&lt;/code> 因为在用快慢指针找到链表的中间位置时,并没有把链表切分开，需要手动把链表断开，要不然从头开始遍历，还是能遍历整个链表的。&lt;/p>
+&lt;h2 id="总结">&lt;a href="#%e6%80%bb%e7%bb%93" class="header-anchor">&lt;/a>总结
+&lt;/h2>&lt;p>链表的问题其实没有没有特别难的算法，基本都是一些基础的操作。链表难的地方是因为内存地址不连续，不像数组那样可以随机访问，只能通过指针操作，理解起来没有那么直观所以会觉难。遇到链表问题就画图，基本上图画出来了，问题也基本能解决了。&lt;/p></description></item></channel></rss>

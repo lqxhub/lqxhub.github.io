@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Fiddler on QX 的笔记</title><link>https://lqxhub.github.io/tags/fiddler/</link><description>Recent content in Fiddler on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 21 Oct 2018 15:55:05 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/fiddler/index.xml" rel="self" type="application/rss+xml"/><item><title>使用fiddler在手机上抓HTTPS包</title><link>https://lqxhub.github.io/posts/46c7ea4a/</link><pubDate>Sun, 21 Oct 2018 15:55:05 +0000</pubDate><guid>https://lqxhub.github.io/posts/46c7ea4a/</guid><description>&lt;p>最近想抓取手机上app的数据包,在电脑上抓包可选的工具有很多, 比如&lt;strong>wireshark&lt;/strong>,Linux命令行下有&lt;strong>tcpdump&lt;/strong>等等工具。可是在这些工具在手机上都没法使用，这怎么搞!&lt;/p>
+&lt;p>&lt;a class="link" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-58848e89e884254d.webp" target="_blank" rel="noopener"
+>&lt;/a>
+后来想了想能不能用网络代理抓包呢,说干就干。从网上查到，用fiddler可以代理手机的网络。&lt;/p>
+&lt;h2 id="第一步下载fiddler">&lt;a href="#%e7%ac%ac%e4%b8%80%e6%ad%a5%e4%b8%8b%e8%bd%bdfiddler" class="header-anchor">&lt;/a>第一步下载fiddler
+&lt;/h2>&lt;p>去下载一个fiddler，建议去官网下载&lt;a class="link" href="https://www.telerik.com/download/fiddler" target="_blank" rel="noopener"
+>传送门&lt;/a>。
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4623113b3cc81f47.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4623113b3cc81f47.webp" alt="fiddler" />
+&lt;/a>
+&lt;/div>
+勾选协议,填写邮箱,然后下载就可以&lt;/p>
+&lt;h2 id="第二步安装fiddler">&lt;a href="#%e7%ac%ac%e4%ba%8c%e6%ad%a5%e5%ae%89%e8%a3%85fiddler" class="header-anchor">&lt;/a>第二步安装fiddler
+&lt;/h2>&lt;p>双击下载的.exe文件,然后选择目录,next,next,完成安装
+##第三步安装CertMaker插件
+fiddler默认生成的证书不能满足Android和iOS系统的要求,需要使用这个插件 &lt;a class="link" href="https://www.telerik.com/fiddler/add-ons" target="_blank" rel="noopener"
+>传送门&lt;/a> 往下找,找到图片的地方,点击下载,下载后,双击安装&lt;/p>
+&lt;h2 id="第四步配置fiddler代理">&lt;a href="#%e7%ac%ac%e5%9b%9b%e6%ad%a5%e9%85%8d%e7%bd%aefiddler%e4%bb%a3%e7%90%86" class="header-anchor">&lt;/a>第四步配置fiddler代理
+&lt;/h2>&lt;p>想要抓HTTPS的数据包,必须安装证书,
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7d789925391e1cbc.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7d789925391e1cbc.webp" alt="fiddler" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;h2 id="httpscdnjsdelivrnetghlqxhubimagesmasterblog3622259-743eda534ce02dafwebp">&lt;a href="#httpscdnjsdelivrnetghlqxhubimagesmasterblog3622259-743eda534ce02dafwebp" class="header-anchor">&lt;/a>点击tools-&amp;gt;options,然后出现这个界面,按照我标注的1,2,3,4都勾选,中间会出现一些提示,都点 &lt;strong>yes&lt;/strong>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-743eda534ce02daf.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-743eda534ce02daf.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/h2>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7e8cbdaa3aa9b801.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-7e8cbdaa3aa9b801.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;hr>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-89aad703f4de31de.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-89aad703f4de31de.webp" alt="ca2.png" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;hr>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-bfd40396ad37918f.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-bfd40396ad37918f.webp" alt="ca_ok.png" />
+&lt;/a>
+&lt;/div>
+最后出现这个对话框说明证书已经安装成功。&lt;/p>
+&lt;h2 id="第五步配置代理手机和电脑在同一个网络中">&lt;a href="#%e7%ac%ac%e4%ba%94%e6%ad%a5%e9%85%8d%e7%bd%ae%e4%bb%a3%e7%90%86%e6%89%8b%e6%9c%ba%e5%92%8c%e7%94%b5%e8%84%91%e5%9c%a8%e5%90%8c%e4%b8%80%e4%b8%aa%e7%bd%91%e7%bb%9c%e4%b8%ad" class="header-anchor">&lt;/a>第五步配置代理(手机和电脑在同一个网络中)
+&lt;/h2>&lt;p>重启fiddler，开始手机的配置。查看电脑的IP地址,我的是192.168.31.56然后打开手机的浏览器(苹果手机一定要用Safari),输入&lt;strong>IP地址:端口号&lt;/strong> 我的是&lt;strong>192.168.31.56:8888&lt;/strong> 这个根据具体情况设置
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9b0486670a684700.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9b0486670a684700.webp" alt="iPhone" />
+&lt;/a>
+&lt;/div>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b5cce86fcb3de1ee.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b5cce86fcb3de1ee.webp" alt="iPhone" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>下载证书,点击允许,安装证书.&lt;/p>
+&lt;h2 id="重点重点重点">&lt;a href="#%e9%87%8d%e7%82%b9%e9%87%8d%e7%82%b9%e9%87%8d%e7%82%b9" class="header-anchor">&lt;/a>重点、重点、重点
+&lt;/h2>&lt;p>&lt;strong>这时候一定要把安装的证书设置为信任的证书&lt;/strong>
+去手机的设置-&amp;gt;通用-&amp;gt;关于本机-&amp;gt;证书新人设置,把刚才安装的证书设置为信任的证书。再去网络设置中,给WiFi设置代理(电脑和手机一定在同一个网络中)
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-33e071e66c26266e.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-33e071e66c26266e.webp" alt="iPhone" />
+&lt;/a>
+&lt;/div>
+然后打开手机上的app,在fiddler中就可以看到,http的数据了,打开一个HTTPS的连接,可以看到,数据是没有加密的
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-701385010b89fdd2.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-701385010b89fdd2.webp" alt="fiddler" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>这时候如果没有抓到数据包,或者错误,应该是证书配置有问题,把之前的证书清除,按照步骤重新配置一遍.重启fiddler,重新在手机安装证书.
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9f53b6e646f19abc.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9f53b6e646f19abc.webp" alt="清除证书" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;h2 id="总结">&lt;a href="#%e6%80%bb%e7%bb%93" class="header-anchor">&lt;/a>总结
+&lt;/h2>&lt;p>fiddler代理可以抓到大多数的数据包,但不是所有的数据包都能抓到。fiddler并不支持全部协议，目前已知的有http2、tcp、udp、websocket等，如果应用走了以上协议，那么fiddler肯定是抓不到的。因为fiddler是基于.net framework实现的，因为.net framework不支持http2，所以fiddler无法抓取http2。
+还有一种情况,app使用自带的证书,我们给手机安装的证书,app不信任.这样也是无法抓到的。fiddler抓包的原理是中间人攻击，也就是说，两头瞒，欺骗客户端&amp;amp;&amp;amp;欺骗服务器端，如果https证书写死在app里，app只信任自己的证书，fiddler没法瞒客户端了，因此fiddler也就抓取不到包了。&lt;/p></description></item></channel></rss>

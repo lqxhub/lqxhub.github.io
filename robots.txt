@@ -1,0 +1,25 @@
+User-agent: *
+
+Allow: /posts/
+Allow: /archives/
+Allow: /categories/
+Allow: /js/
+Allow: /ts/
+Allow: /css/
+Allow: /scss/
+Allow: /*.jpg
+Allow: /*.png
+Allow: /*.jpeg
+Allow: /*.gif
+Allow: /*.bmp
+Allow: /*.webp
+
+Disallow: /guestbook/
+Disallow: /others/
+Disallow: /tool/
+Disallow: /collect/
+Disallow: /page/
+Disallow: /vendors/
+Disallow: /*?ref=
+
+Sitemap: https://lqxhub.github.io/sitemap.xml

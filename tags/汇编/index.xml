@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>汇编 on QX 的笔记</title><link>https://lqxhub.github.io/tags/%E6%B1%87%E7%BC%96/</link><description>Recent content in 汇编 on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 02 May 2022 19:10:56 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/%E6%B1%87%E7%BC%96/index.xml" rel="self" type="application/rss+xml"/><item><title>golang汇编 深入探讨了 Go 语言中的汇编实现及参数传递的演变 - QX's blog</title><link>https://lqxhub.github.io/posts/549df04c/</link><pubDate>Mon, 02 May 2022 19:10:56 +0000</pubDate><guid>https://lqxhub.github.io/posts/549df04c/</guid><description>&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-778243d5661a39cd.webp" alt="Featured image of post golang汇编 深入探讨了 Go 语言中的汇编实现及参数传递的演变 - QX's blog" />&lt;p>五一假期在家没事逛论坛的时候，发现了一个宝藏网站，&lt;a class="link" href="https://godbolt.org/" target="_blank" rel="noopener"
+>传送门&lt;/a> 这个网站可以在线生成多种语言的汇编代码，有这个好东西，那必须拿go实验一番。&lt;/p>
+&lt;p>很久之前我写过一篇go通过go汇编看多返回值实现的文章&lt;a class="link" href="https://www.jianshu.com/p/0e0ee4091d97" target="_blank" rel="noopener"
+>传送门&lt;/a>。当时写的时候比较早，后来 go 1.17 对函数调用时，传递参数做了修改，简单说就是go1.17之前，函数参数是通过栈空间来传递的，在go1.17时做出了改变，在一些平台上（AMD64）可以像C,C++那样使用寄存器传递参数和函数返回值了。为什么做出这个改变呢，原因就是寄存器更快。虽然内存已经很快了，但是还是没法和寄存器相比。之前为啥不用寄存器，用栈空间，原因是实现简单，不用考虑不同平台，不用架构的区别。&lt;/p>
+&lt;p>简单总结一下两种方式&lt;/p>
+&lt;ol>
+&lt;li>栈空间：&lt;/li>
+&lt;/ol>
+&lt;ul>
+&lt;li>优点：实现简单，不用区分不同的平台，通用性强&lt;/li>
+&lt;li>缺点：效率低&lt;/li>
+&lt;/ul>
+&lt;ol start="2">
+&lt;li>寄存器：&lt;/li>
+&lt;/ol>
+&lt;ul>
+&lt;li>优点：速度快&lt;/li>
+&lt;li>缺点：通用性差，不同的平台需要单独处理
+当然，这里说的通用性差是对于编译器来说的&lt;/li>
+&lt;/ul>
+&lt;h2 id="go汇编基础知识">&lt;a href="#go%e6%b1%87%e7%bc%96%e5%9f%ba%e7%a1%80%e7%9f%a5%e8%af%86" class="header-anchor">&lt;/a>go汇编基础知识
+&lt;/h2>&lt;p>再来总结一次go汇编的基础知识吧，现在回头看之前总结的还是不全面的
+go使用的 &lt;strong>plan9&lt;/strong> 汇编，这个和 &lt;strong>AT&amp;amp;T&lt;/strong> 的汇编差别还是有点大的，我个人感觉plan9汇编比较重要的就是四个寄存器，只要理解了这四个寄存器，汇编就理解了一半了&lt;/p>
+&lt;p>汇编中个几个术语:&lt;/p>
+&lt;ul>
+&lt;li>栈：进程、线程、goroutine 都有自己的调用栈，先进后出（FILO）&lt;/li>
+&lt;li>栈帧：可以理解是函数调用时，在栈上为函数所分配的内存区域&lt;/li>
+&lt;li>调用者：caller，比如：A 函数调用了 B 函数，那么 A 就是调用者&lt;/li>
+&lt;li>被调者：callee，比如：A 函数调用了 B 函数，那么 B 就是被调者&lt;/li>
+&lt;/ul>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>寄存器&lt;/th>
+&lt;th>说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>SB(Static base pointer)&lt;/td>
+&lt;td>global symbols 全局静态指针&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>FP(Frame pointer)&lt;/td>
+&lt;td>arguments and locals 指向栈帧的开始&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>SP(Stack pointer)&lt;/td>
+&lt;td>top of stack 指向栈顶&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>PC(Program counter)&lt;/td>
+&lt;td>jumps and branches 简单说程序计数器&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>简单展开说一下几个寄存器吧&lt;/p>
+&lt;ul>
+&lt;li>SB：全局静态指针，即程序地址空间的开始地址。一般用在声明函数、全局变量中。&lt;/li>
+&lt;li>FP：指向的是 caller 调用 callee 时传递的第一个参数的位置，可以看作是指向两个函数栈的分割位置；但是FP指向的位置不在 callee 的 stack frame 之内。而是在 caller 的 stack frame 上，指向调用 add 函数时传递的第一个参数的位置；可以在 callee 中用 &lt;code>symbol+offset(FP)&lt;/code> 来获取入参的参数值，比如 &lt;code>a+8(FP)&lt;/code>。虽然 &lt;code>symbol&lt;/code> 没有什么具体意义，但是不加编译器会报错。&lt;/li>
+&lt;li>SP：这个是最常用的寄存器了，同样也是最复杂的寄存器了。不同的引用方式，代表不同的位置。SP寄存器 分为伪 SP 寄存器和硬件 SP 寄存器。&lt;code>symbol+offset(SP)&lt;/code> 形式，则表示伪寄存器 SP （这个也简称为 &lt;strong>BP&lt;/strong>）。如果是 &lt;code>offset(SP)&lt;/code> 则表示硬件寄存器 SP。伪 SP 寄存器指向当前栈帧第一个局部变量的结束位置；硬件SP指向的是整个函数栈结束的位置。**有个比较坑的地方：**对于编译输出(go tool compile -S / go tool objdump)的代码来讲，所有的 SP 都是硬件 SP 寄存器，无论是否带 symbol（这一点非常具有迷惑性，需要慢慢理解。往往在分析编译输出的汇编时，看到的就是硬件 SP 寄存器）。&lt;/li>
+&lt;li>PC：这个就是计算机常见的 pc 寄存器，在 x86 平台下对应 ip 寄存器，amd64 上则是 rip。这个很少有用到。&lt;/li>
+&lt;/ul>
+&lt;p>通过一个栈帧的图来理解一下这几个寄存器&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-778243d5661a39cd.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-778243d5661a39cd.webp" alt="栈帧.jpg" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>大体的栈帧就是图中的这样，图中标注的寄存器都是以 &lt;strong>callee&lt;/strong> 函数为基准的&lt;/p>
+&lt;p>通过图中可知，如果callee函数中没有局部变量的话，SP硬寄存器和SP伪寄存器指向的是同一个地方&lt;/p>
+&lt;p>伪 FP 寄存器对应的是 caller 函数的帧指针，一般用来访问 callee 函数的入参参数和返回值。伪 SP 栈指针对应的是当前 callee 函数栈帧的底部（不包括参数和返回值部分），一般用于定位局部变量。硬件 SP 是一个比较特殊的寄存器，因为还存在一个同名的 SP 真寄存器，硬件 SP 寄存器对应的是栈的顶部。&lt;/p>
+&lt;p>在编写 Go 汇编时，当需要区分伪寄存器和真寄存器的时候只需要记住一点：伪寄存器一般需要一个标识符和偏移量为前缀，如果没有标识符前缀则是真寄存器。比如(SP)、+8(SP)没有标识符前缀为真 SP 寄存器，而 a(SP)、b+8(SP)有标识符为前缀表示伪寄存器。&lt;/p>
+&lt;p>&lt;strong>还有一点&lt;/strong>&lt;/p>
+&lt;p>如果callee的栈空间大小是0的话， &lt;strong>caller BP&lt;/strong> 是不会被压入栈中的，此时的SP硬件寄存器和伪FP寄存器指向的是同一个位置。&lt;/p>
+&lt;p>在汇编中，函数的定义&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>TEXT &amp;#34;&amp;#34;.add(SB), NOSPLIT|ABIInternal, $0-24
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>TEXT&lt;/code> 是一个特殊的指令，定义一个函数&lt;/p>
+&lt;p>&lt;code>.add&lt;/code> 是函数的名&lt;/p>
+&lt;p>&lt;code>NOSPLIT&lt;/code> 向编译器表明不应该插入 stack-split 的用来检查栈需要扩张的前导指令&lt;/p>
+&lt;p>&lt;code> $0-24&lt;/code> 这两个参数，0是声明这个函数需要的栈空间的大小，一般来说就是局部变量需要的空间，单位是位。
+24是声明函数传入参数和返回值需要的栈空间的大小，单位也是位。&lt;/p>
+&lt;h2 id="生成汇编">&lt;a href="#%e7%94%9f%e6%88%90%e6%b1%87%e7%bc%96" class="header-anchor">&lt;/a>生成汇编
+&lt;/h2>&lt;p>了解了这些基本概念后，上一段代码，通过汇编看一下不同版本go是如何处理函数传递参数的&lt;/p>
+&lt;p>先通过一段简单的代码看一下区别&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#50fa7b">add&lt;/span>(&lt;span style="color:#bd93f9">10&lt;/span>,&lt;span style="color:#bd93f9">20&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>&lt;span style="color:#6272a4">//go:noinline
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">add&lt;/span>(a,b &lt;span style="color:#8be9fd">int&lt;/span>) &lt;span style="color:#8be9fd">int&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> a&lt;span style="color:#ff79c6">+&lt;/span>b
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>//go:noinline&lt;/code>
+这个是告诉编译器不要对这个函数内联，这个东西叫go的编译指令，go还有你很多别的指令，这里就不展开了。
+想想go也挺有意思的，C++是通过 &lt;code> inline&lt;/code> 显式的指定要内联，go是告诉编译器不要内联。&lt;/p>
+&lt;p>先看一下在1.16下的汇编代码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>main_pc0:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> .file 1 &amp;#34;&amp;lt;source&amp;gt;&amp;#34;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> .loc 1 5 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> TEXT &amp;#34;&amp;#34;.main(SB), ABIInternal, $32-0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> MOVQ (TLS), CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> CMPQ SP, 16(CX)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> PCDATA $0, $-2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> JLS main_pc64
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> PCDATA $0, $-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> SUBQ $32, SP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> MOVQ BP, 24(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> LEAQ 24(SP), BP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> FUNCDATA $0, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> FUNCDATA $1, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> .loc 1 11 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> MOVQ $10, (SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> MOVQ $20, 8(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> PCDATA $1, $0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> CALL &amp;#34;&amp;#34;.add(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> .loc 1 12 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> MOVQ 24(SP), BP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> ADDQ $32, SP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span> NOP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span> .loc 1 5 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span> PCDATA $1, $-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span> PCDATA $0, $-2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span> NOP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span>main_pc64:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span> CALL runtime.morestack_noctxt(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31&lt;/span>&lt;span> PCDATA $0, $-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32&lt;/span>&lt;span> JMP main_pc0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33&lt;/span>&lt;span> .loc 1 21 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34&lt;/span>&lt;span> TEXT &amp;#34;&amp;#34;.add(SB), NOSPLIT|ABIInternal, $0-24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35&lt;/span>&lt;span> FUNCDATA $0, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36&lt;/span>&lt;span> FUNCDATA $1, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37&lt;/span>&lt;span> .loc 1 22 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38&lt;/span>&lt;span> MOVQ &amp;#34;&amp;#34;.b+16(SP), AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39&lt;/span>&lt;span> MOVQ &amp;#34;&amp;#34;.a+8(SP), CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40&lt;/span>&lt;span> ADDQ CX, AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41&lt;/span>&lt;span> MOVQ AX, &amp;#34;&amp;#34;.~r2+24(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>代码有很多，只关注下面图中标注的&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-2629b0b47ac282e0.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-2629b0b47ac282e0.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>通 &lt;code> MOVQ &amp;quot;&amp;quot;.b+16(SP), AX&lt;/code> 和 &lt;code>MOVQ &amp;quot;&amp;quot;.a+8(SP), CX&lt;/code> 可以得知，函数是通过SP寄存器偏移完成传递参数的。
+这里要注意，&lt;code>.b+16(SP)&lt;/code> 这种写法看着像是使用的是伪SP寄存器，实际上用的是硬件SP寄存器&lt;/p>
+&lt;p>同样的，在函数调用之前，也会把数值放到栈的指定位置&lt;/p>
+&lt;p>&lt;code>MOVQ $10, (SP)&lt;/code> , &lt;code>MOVQ $20, 8(SP)&lt;/code>&lt;/p>
+&lt;p>把编译器换成最新的 1.18看一下&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>main_pc0:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> .file 1 &amp;#34;&amp;lt;source&amp;gt;&amp;#34;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> .loc 1 5 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> TEXT &amp;#34;&amp;#34;.main(SB), ABIInternal, $24-0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> CMPQ SP, 16(R14)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> PCDATA $0, $-2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> JLS main_pc47
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> PCDATA $0, $-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> SUBQ $24, SP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> MOVQ BP, 16(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> LEAQ 16(SP), BP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> FUNCDATA $0, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> FUNCDATA $1, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> .loc 1 11 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> MOVL $10, AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> MOVL $20, BX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> PCDATA $1, $0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> NOP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> CALL &amp;#34;&amp;#34;.add(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> .loc 1 12 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> MOVQ 16(SP), BP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> ADDQ $24, SP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span>main_pc47:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span> NOP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span> .loc 1 5 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span> PCDATA $1, $-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span> PCDATA $0, $-2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span> CALL runtime.morestack_noctxt(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span> PCDATA $0, $-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31&lt;/span>&lt;span> JMP main_pc0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32&lt;/span>&lt;span> .loc 1 21 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33&lt;/span>&lt;span> TEXT &amp;#34;&amp;#34;.add(SB), NOSPLIT|ABIInternal, $0-16
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34&lt;/span>&lt;span> FUNCDATA $0, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35&lt;/span>&lt;span> FUNCDATA $1, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36&lt;/span>&lt;span> FUNCDATA $5, &amp;#34;&amp;#34;.add.arginfo1(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37&lt;/span>&lt;span> FUNCDATA $6, &amp;#34;&amp;#34;.add.argliveinfo(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38&lt;/span>&lt;span> PCDATA $3, $1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39&lt;/span>&lt;span> .loc 1 22 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40&lt;/span>&lt;span> ADDQ BX, AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在1.18的汇编代码中就没有通过栈空间来传递参数了，而是直接通过寄存器完成操作，
+&lt;code>ADDQ BX, AX&lt;/code>，并且返回值直接放到寄存器中。&lt;/p>
+&lt;p>寄存器数量是有上限的，如果传递的参数个数超过了寄存器的上限，又会怎样处理呢&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#50fa7b">add&lt;/span>(&lt;span style="color:#bd93f9">1&lt;/span>,&lt;span style="color:#bd93f9">2&lt;/span>,&lt;span style="color:#bd93f9">3&lt;/span>,&lt;span style="color:#bd93f9">4&lt;/span>,&lt;span style="color:#bd93f9">5&lt;/span>,&lt;span style="color:#bd93f9">6&lt;/span>,&lt;span style="color:#bd93f9">7&lt;/span>,&lt;span style="color:#bd93f9">8&lt;/span>,&lt;span style="color:#bd93f9">9&lt;/span>,&lt;span style="color:#bd93f9">10&lt;/span>,&lt;span style="color:#bd93f9">11&lt;/span>,&lt;span style="color:#bd93f9">12&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>&lt;span style="color:#6272a4">//go:noinline
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">add&lt;/span>(a,b,c,d,e,f,g,h,i,j,k,l &lt;span style="color:#8be9fd">int&lt;/span>) &lt;span style="color:#8be9fd">int&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> a&lt;span style="color:#ff79c6">+&lt;/span>b&lt;span style="color:#ff79c6">+&lt;/span>c&lt;span style="color:#ff79c6">+&lt;/span>d&lt;span style="color:#ff79c6">+&lt;/span>e&lt;span style="color:#ff79c6">+&lt;/span>f&lt;span style="color:#ff79c6">+&lt;/span>g&lt;span style="color:#ff79c6">+&lt;/span>h&lt;span style="color:#ff79c6">+&lt;/span>i&lt;span style="color:#ff79c6">+&lt;/span>j&lt;span style="color:#ff79c6">+&lt;/span>k&lt;span style="color:#ff79c6">+&lt;/span>l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>对应的汇编&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>main_pc0:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> .file 1 &amp;#34;&amp;lt;source&amp;gt;&amp;#34;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> .loc 1 5 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> TEXT &amp;#34;&amp;#34;.main(SB), ABIInternal, $104-0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> CMPQ SP, 16(R14)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> PCDATA $0, $-2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> JLS main_pc111
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> PCDATA $0, $-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> SUBQ $104, SP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> MOVQ BP, 96(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> LEAQ 96(SP), BP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> FUNCDATA $0, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> FUNCDATA $1, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> .loc 1 11 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> MOVQ $10, (SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> MOVQ $11, 8(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> MOVQ $12, 16(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> MOVL $1, AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> MOVL $2, BX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> MOVL $3, CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> MOVL $4, DI
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> MOVL $5, SI
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> MOVL $6, R8
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span> MOVL $7, R9
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span> MOVL $8, R10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span> MOVL $9, R11
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span> PCDATA $1, $0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span> NOP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span> CALL &amp;#34;&amp;#34;.add(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span> .loc 1 12 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31&lt;/span>&lt;span> MOVQ 96(SP), BP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32&lt;/span>&lt;span> ADDQ $104, SP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34&lt;/span>&lt;span>main_pc111:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35&lt;/span>&lt;span> NOP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36&lt;/span>&lt;span> .loc 1 5 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37&lt;/span>&lt;span> PCDATA $1, $-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38&lt;/span>&lt;span> PCDATA $0, $-2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39&lt;/span>&lt;span> CALL runtime.morestack_noctxt(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40&lt;/span>&lt;span> PCDATA $0, $-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41&lt;/span>&lt;span> JMP main_pc0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42&lt;/span>&lt;span> .loc 1 21 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43&lt;/span>&lt;span> TEXT &amp;#34;&amp;#34;.add(SB), NOSPLIT|ABIInternal, $0-96
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44&lt;/span>&lt;span> FUNCDATA $0, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45&lt;/span>&lt;span> FUNCDATA $1, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46&lt;/span>&lt;span> FUNCDATA $5, &amp;#34;&amp;#34;.add.arginfo1(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47&lt;/span>&lt;span> FUNCDATA $6, &amp;#34;&amp;#34;.add.argliveinfo(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48&lt;/span>&lt;span> PCDATA $3, $1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49&lt;/span>&lt;span> .loc 1 22 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">50&lt;/span>&lt;span> LEAQ (BX)(AX*1), DX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">51&lt;/span>&lt;span> ADDQ DX, CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">52&lt;/span>&lt;span> ADDQ DI, CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">53&lt;/span>&lt;span> ADDQ SI, CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">54&lt;/span>&lt;span> ADDQ R8, CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">55&lt;/span>&lt;span> ADDQ R9, CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">56&lt;/span>&lt;span> ADDQ R10, CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">57&lt;/span>&lt;span> ADDQ R11, CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">58&lt;/span>&lt;span> MOVQ &amp;#34;&amp;#34;.j+8(SP), DX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">59&lt;/span>&lt;span> ADDQ DX, CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">60&lt;/span>&lt;span> MOVQ &amp;#34;&amp;#34;.k+16(SP), DX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">61&lt;/span>&lt;span> ADDQ DX, CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">62&lt;/span>&lt;span> MOVQ &amp;#34;&amp;#34;.l+24(SP), DX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">63&lt;/span>&lt;span> LEAQ (DX)(CX*1), AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">64&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过汇编可以看到，会先使用寄存器，当寄存器不够时，会使用栈空间。&lt;/p>
+&lt;h2 id="手写汇编">&lt;a href="#%e6%89%8b%e5%86%99%e6%b1%87%e7%bc%96" class="header-anchor">&lt;/a>手写汇编
+&lt;/h2>&lt;p>通过手写一段汇编代码，验证一下各个寄存器的位置，我用的go版本是 1.14.13，所以传参数用的是栈空间。
+在 &lt;strong>main.go&lt;/strong> 文件中&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">add&lt;/span>(&lt;span style="color:#8be9fd">int&lt;/span>, &lt;span style="color:#8be9fd">int&lt;/span>) &lt;span style="color:#8be9fd">int&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">print&lt;/span>(&lt;span style="color:#50fa7b">add&lt;/span>(&lt;span style="color:#bd93f9">10&lt;/span>, &lt;span style="color:#bd93f9">20&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>定义一个 &lt;strong>main&lt;/strong> 函数作为整个程序的入口，声明一个 &lt;code>add(int, int) int&lt;/code> 函数，add 函数的具体实现是用汇编写的,
+在 &lt;strong>main.go&lt;/strong> 同级目录下创建一个 &lt;strong>add_amd64.s&lt;/strong> 的文件。&lt;/p>
+&lt;h3 id="使用硬bp寄存器">&lt;a href="#%e4%bd%bf%e7%94%a8%e7%a1%acbp%e5%af%84%e5%ad%98%e5%99%a8" class="header-anchor">&lt;/a>使用硬BP寄存器
+&lt;/h3>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>TEXT ·add(SB), $0-24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> MOVQ 8(SP), AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> MOVQ 16(SP), BX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> ADDQ BX, AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> MOVQ AX, 24(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用 &lt;strong>go run .&lt;/strong> 命令，看一下程序执行的结果。
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-66c52609a214fb8c.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-66c52609a214fb8c.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>这时候的栈帧如图所示
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-029c4c14cf366e1c.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-029c4c14cf366e1c.webp" alt="" />
+&lt;/a>
+&lt;/div>
+因为add函数栈空间是0，所以伪SP寄存器没有被压入栈中，伪SP寄存器和硬件SP寄存器指向的是同一个位置。&lt;/p>
+&lt;h3 id="使用伪sp寄存器">&lt;a href="#%e4%bd%bf%e7%94%a8%e4%bc%aasp%e5%af%84%e5%ad%98%e5%99%a8" class="header-anchor">&lt;/a>使用伪SP寄存器
+&lt;/h3>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>TEXT ·add(SB), $16-24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> MOVQ a+16(SP), AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> MOVQ b+24(SP), BX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> ADDQ BX, AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> MOVQ AX, ret+32(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>为了区分对比，这时候把add函数的栈空间设置为16，然后使用伪SP寄存器来获取值。
+执行结果如下：
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4d9226937d2d365d.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4d9226937d2d365d.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>这时候的栈空间如图
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-418927831c585496.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-418927831c585496.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;h3 id="使用fp寄存器">&lt;a href="#%e4%bd%bf%e7%94%a8fp%e5%af%84%e5%ad%98%e5%99%a8" class="header-anchor">&lt;/a>使用FP寄存器
+&lt;/h3>&lt;p>代码如下:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>TEXT ·add(SB), $16-24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> MOVQ a+0(FP), AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> MOVQ b+8(FP), BX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> ADDQ BX, AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> MOVQ AX, ret+16(FP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>执行结果:&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-66c52609a214fb8c%20%281%29.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-66c52609a214fb8c%20%281%29.webp" alt="" />
+&lt;/a>
+&lt;/div>
+说明还是正确的，此时的栈空间没有变化，和上面是一样的。&lt;/p>
+&lt;p>到这，应该能理解各个寄存器的相对位置了吧：
+在callee栈空间不为0的时候，&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>FP = 硬件SP + framsize + 16
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>SP = 硬件SP + framsize
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在callee栈空间为0的时候，&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>FP = 硬件SP + 8
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>SP = 硬件SP
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="汇编简单分析">&lt;a href="#%e6%b1%87%e7%bc%96%e7%ae%80%e5%8d%95%e5%88%86%e6%9e%90" class="header-anchor">&lt;/a>汇编简单分析
+&lt;/h2>&lt;p>通过上面的代码会发现，手写汇编的代码和反汇编的代码有些不同。反汇编得到的代码，在函数前面会有一段
+&lt;code> CALL runtime.morestack_noctxt(SB)&lt;/code>
+其实这个是编译器自动插入的一段函数，这段指令会调用一次 &lt;code>runtime.morestack_noctxt&lt;/code> 这个函数具体的作用是挺复杂的，主要有 检查是否需要扩张栈，go的栈空间是可以动态扩充的，所以在调用函数前会检查当前的栈空间是否需要扩充。还有一个功能就是检查当前协程需要抢占。go在1.14之前goroutine的抢占是协作式抢占模式，怎么判断一个协程是否需要抢占呢？后台协程会定时扫描当前运行中的协程，如果发现一个协程运行比较久，会将其标记为抢占状态。这个扫描的时间点就是函数调用期间完成的。&lt;/p>
+&lt;h2 id="不同类型参数传递">&lt;a href="#%e4%b8%8d%e5%90%8c%e7%b1%bb%e5%9e%8b%e5%8f%82%e6%95%b0%e4%bc%a0%e9%80%92" class="header-anchor">&lt;/a>不同类型参数传递
+&lt;/h2>&lt;h2 id="传结构体">&lt;a href="#%e4%bc%a0%e7%bb%93%e6%9e%84%e4%bd%93" class="header-anchor">&lt;/a>传结构体
+&lt;/h2>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">type&lt;/span> One &lt;span style="color:#8be9fd;font-style:italic">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> a &lt;span style="color:#8be9fd">int&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> b &lt;span style="color:#8be9fd">int&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> o &lt;span style="color:#ff79c6">:=&lt;/span> One {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> a:&lt;span style="color:#bd93f9">10&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> b&lt;span style="color:#bd93f9">.20&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> &lt;span style="color:#50fa7b">f1&lt;/span>(o)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span>&lt;span style="color:#6272a4">//go:noinline
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">f1&lt;/span>(o One) &lt;span style="color:#8be9fd">int&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> o.a &lt;span style="color:#ff79c6">+&lt;/span> o.b
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>只贴 关键的汇编代码吧&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span> MOVQ $10, (SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> MOVQ $0, 8(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> PCDATA $1, $0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> CALL &amp;#34;&amp;#34;.f1(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>..........................
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> TEXT &amp;#34;&amp;#34;.f1(SB), NOSPLIT|ABIInternal, $0-24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> MOVQ &amp;#34;&amp;#34;.o+16(SP), AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> MOVQ &amp;#34;&amp;#34;.o+8(SP), CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> ADDQ CX, AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> MOVQ AX, &amp;#34;&amp;#34;.~r1+24(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在传结构体的时候，只把结构体的内容传进去了。&lt;/p>
+&lt;h3 id="传结构体指针">&lt;a href="#%e4%bc%a0%e7%bb%93%e6%9e%84%e4%bd%93%e6%8c%87%e9%92%88" class="header-anchor">&lt;/a>传结构体指针
+&lt;/h3>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">type&lt;/span> One &lt;span style="color:#8be9fd;font-style:italic">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> a &lt;span style="color:#8be9fd">int&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> b &lt;span style="color:#8be9fd">int&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> o &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#ff79c6">&amp;amp;&lt;/span>One{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> a:&lt;span style="color:#bd93f9">10&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> b:&lt;span style="color:#bd93f9">20&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> &lt;span style="color:#50fa7b">f1&lt;/span>(o)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span>&lt;span style="color:#6272a4">//go:noinline
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">f1&lt;/span>(o &lt;span style="color:#ff79c6">*&lt;/span>One) &lt;span style="color:#8be9fd">int&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> o.a &lt;span style="color:#ff79c6">+&lt;/span> o.b
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>汇编&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span> LEAQ &amp;#34;&amp;#34;..autotmp_2+16(SP), AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> MOVQ AX, (SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> PCDATA $1, $0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> CALL &amp;#34;&amp;#34;.f1(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>.......................
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> TEXT &amp;#34;&amp;#34;.f1(SB), NOSPLIT|ABIInternal, $0-16
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> MOVQ &amp;#34;&amp;#34;.o+8(SP), AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> MOVQ (AX), CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> ADDQ 8(AX), CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> MOVQ CX, &amp;#34;&amp;#34;.~r1+16(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到，传递指针的时候，只是把结构体第一个元素的地址传递进去了。&lt;/p>
+&lt;p>如果是传一个空的结构体&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">type&lt;/span> One &lt;span style="color:#8be9fd;font-style:italic">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> o &lt;span style="color:#ff79c6">:=&lt;/span> One{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> &lt;span style="color:#50fa7b">f1&lt;/span>(o,&lt;span style="color:#bd93f9">10&lt;/span>,&lt;span style="color:#bd93f9">20&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>&lt;span style="color:#6272a4">//go:noinline
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>&lt;span style="color:#6272a4">&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">f1&lt;/span>(o One, a,b &lt;span style="color:#8be9fd">int&lt;/span>) &lt;span style="color:#8be9fd">int&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> a &lt;span style="color:#ff79c6">+&lt;/span> b
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>汇编&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span> TEXT &amp;#34;&amp;#34;.f1(SB), NOSPLIT|ABIInternal, $0-24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> .loc 1 15 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> MOVQ &amp;#34;&amp;#34;.b+16(SP), AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> MOVQ &amp;#34;&amp;#34;.a+8(SP), CX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> ADDQ CX, AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> MOVQ AX, &amp;#34;&amp;#34;.~r3+24(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span> RET
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到，当传递一个空结构体时，相当于没有传递，因为空结构体的空间大小是0，所以编译器就给忽略了。&lt;/p>
+&lt;h2 id="最后">&lt;a href="#%e6%9c%80%e5%90%8e" class="header-anchor">&lt;/a>最后
+&lt;/h2>&lt;p>暂时就想到这么多，先写这些吧，后面想起别的再补充吧&lt;/p></description></item><item><title>通过汇编看golang函数的多返回值</title><link>https://lqxhub.github.io/posts/1c1c3bd5/</link><pubDate>Sun, 21 Jun 2020 11:27:54 +0000</pubDate><guid>https://lqxhub.github.io/posts/1c1c3bd5/</guid><description>&lt;p>golang这门语言，有个比较好的特性，就是支持函数的多返回值。想C，C++，Java等这些语言，是不支持函数多返回的。但是C，C++可以使用传递指针，实现函数多返回。但是，你有没有想过，golang是怎样实现函数多返回值的呢？
+我们知道，C，C++是通过寄存器实现函数返回值的，也就是先把返回值写入到一个寄存器中，然后再从寄存器中，读到函数的返回值。golang也是这样实现的吗？&lt;/p>
+&lt;blockquote>
+&lt;p>伟大的思想家孔子曾说过，在源码面前一切都如同裸奔。后来，鲁迅先生，总结了孔子的思想，说出了，在汇编面前，一切语法都是纸老虎。&lt;/p>
+&lt;/blockquote>
+&lt;p>下面我们通过golang的汇编指令，来看一下golang是怎样实现函数的多返回值的&lt;/p>
+&lt;p>在看汇编之前，我们先用go的&lt;strong>debug&lt;/strong>函数看下函数的栈信息
+代码很简单，不用解释了&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;runtime/debug&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> &lt;span style="color:#50fa7b">one&lt;/span>(&lt;span style="color:#bd93f9">3&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">one&lt;/span>(a &lt;span style="color:#8be9fd">int&lt;/span>) (&lt;span style="color:#8be9fd">int&lt;/span>, &lt;span style="color:#8be9fd">int&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">string&lt;/span>(debug.&lt;span style="color:#50fa7b">Stack&lt;/span>()))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> a, a &lt;span style="color:#ff79c6">+&lt;/span> &lt;span style="color:#bd93f9">5&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-6c8bd3d9a25a2dd4.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-6c8bd3d9a25a2dd4.webp" alt="" />
+&lt;/a>
+&lt;/div>
+我标红的这一行，就是&lt;strong>one&lt;/strong> 函数的栈信息，第一个参数 &lt;strong>0x3&lt;/strong> 很好理解，就是我们传入的参数&lt;strong>3&lt;/strong>， 但是后面这两个是啥？还有，我明明只传了一个参数，为啥会传入三个参数？&lt;/p>
+&lt;p>到这里，我也就不卖关子了，直接说了，后面这两个参数，就是one函数返回值的地址，也就是说，one函数返回值地址不在one函数中，而是在调用one函数的mian函数中。golang的函数返回值，和C，C++的不同，golang的返回值是通过栈内地址实现的（返回值的地址是由函数调用者提供）。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">var&lt;/span> b, c &lt;span style="color:#ff79c6">*&lt;/span>&lt;span style="color:#8be9fd">int&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> &lt;span style="color:#50fa7b">one&lt;/span>(&lt;span style="color:#bd93f9">3&lt;/span>, b, c)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">one&lt;/span>(a &lt;span style="color:#8be9fd">int&lt;/span>, b, c &lt;span style="color:#ff79c6">*&lt;/span>&lt;span style="color:#8be9fd">int&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>也就是说，刚开始的那段代码，和这段在功能实现上，没有什么差别，只是golang编译器提供的一个语法糖。&lt;/p>
+&lt;p>下面通过汇编来看一下
+这次我们不是对深入分析golang的汇编，只是从汇编层面，验证我们之前结论（golang函数多返回问题）
+所以，不会死磕plan9汇编语法，说实话，plan9的很多知识我也不懂，大学没开过汇编的课程，这些东西都是因为兴趣自学的。&lt;/p>
+&lt;p>golang用的是plan9汇编，看plan9之前，先了解一下plan9的几个概念&lt;/p>
+&lt;p>go汇编中有4个伪寄存器&lt;/p>
+&lt;ul>
+&lt;li>FP: Frame pointer，指向栈底位置，一般用来引用函数的输入参数，用来访问函数的参数&lt;/li>
+&lt;li>PC: Program counter: 程序计数器，用于分支和跳转&lt;/li>
+&lt;li>SB: Static base pointer: 一般用于声明函数或者全局变量&lt;/li>
+&lt;li>SP: Stack pointer：指向当前栈帧的局部变量的开始位置(栈顶位置)，一般用来引用函数的局部变量&lt;/li>
+&lt;/ul>
+&lt;p>我们用这段代码进行汇编&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> &lt;span style="color:#50fa7b">one&lt;/span>(&lt;span style="color:#bd93f9">3&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">one&lt;/span>(a &lt;span style="color:#8be9fd">int&lt;/span>) (&lt;span style="color:#8be9fd">int&lt;/span>, &lt;span style="color:#8be9fd">int&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> a, a &lt;span style="color:#ff79c6">+&lt;/span> &lt;span style="color:#bd93f9">5&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用 &lt;code>go tool compile -N -l -S main.go &lt;/code> 得到汇编代码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-asm" data-lang="asm">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&amp;#34;&amp;#34;&lt;span style="color:#50fa7b">.main&lt;/span> STEXT nosplit size=&lt;span style="color:#bd93f9">2&lt;/span> args=&lt;span style="color:#bd93f9">0x0&lt;/span> locals=&lt;span style="color:#bd93f9">0x0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">3&lt;/span>) TEXT &amp;#34;&amp;#34;.main(SB), NOSPLIT|ABIInternal, $0-0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">3&lt;/span>) FUNCDATA $0, gclocals·&lt;span style="color:#bd93f9">33&lt;/span>cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">3&lt;/span>) FUNCDATA $1, gclocals·&lt;span style="color:#bd93f9">33&lt;/span>cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">3&lt;/span>) FUNCDATA $3, gclocals·&lt;span style="color:#bd93f9">33&lt;/span>cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">4&lt;/span>) PCDATA $2, $0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">4&lt;/span>) PCDATA $0, $0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">4&lt;/span>) XCHGL AX, AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0001&lt;/span> &lt;span style="color:#bd93f9">00001&lt;/span> (&amp;lt;unknown line number&amp;gt;) RET
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">90&lt;/span> c3 ..
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span>&amp;#34;&amp;#34;&lt;span style="color:#50fa7b">.one&lt;/span> STEXT nosplit size=&lt;span style="color:#bd93f9">20&lt;/span> args=&lt;span style="color:#bd93f9">0x18&lt;/span> locals=&lt;span style="color:#bd93f9">0x0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">7&lt;/span>) TEXT &amp;#34;&amp;#34;.one(SB), NOSPLIT|ABIInternal, $0-24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">7&lt;/span>) FUNCDATA $0, gclocals·&lt;span style="color:#bd93f9">33&lt;/span>cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">7&lt;/span>) FUNCDATA $1, gclocals·&lt;span style="color:#bd93f9">33&lt;/span>cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">7&lt;/span>) FUNCDATA $3, gclocals·&lt;span style="color:#bd93f9">33&lt;/span>cdeccccebe80329f1fdbee7f5874cb(SB)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">8&lt;/span>) PCDATA $2, $0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">8&lt;/span>) PCDATA $0, $0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">00000&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">8&lt;/span>) MOVQ &amp;#34;&amp;#34;.a+&lt;span style="color:#bd93f9">8&lt;/span>(SP), AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0005&lt;/span> &lt;span style="color:#bd93f9">00005&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">8&lt;/span>) MOVQ AX, &amp;#34;&amp;#34;.~r1+&lt;span style="color:#bd93f9">16&lt;/span>(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x000a&lt;/span> &lt;span style="color:#bd93f9">00010&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">8&lt;/span>) ADDQ $5, AX
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x000e&lt;/span> &lt;span style="color:#bd93f9">00014&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">8&lt;/span>) MOVQ AX, &amp;#34;&amp;#34;.~r2+&lt;span style="color:#bd93f9">24&lt;/span>(SP)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0013&lt;/span> &lt;span style="color:#bd93f9">00019&lt;/span> (C:\Users\bruce\Desktop\go\main.go:&lt;span style="color:#bd93f9">8&lt;/span>) RET
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0000&lt;/span> &lt;span style="color:#bd93f9">48&lt;/span> &lt;span style="color:#bd93f9">8&lt;/span>b &lt;span style="color:#bd93f9">44&lt;/span> &lt;span style="color:#bd93f9">24&lt;/span> &lt;span style="color:#bd93f9">08&lt;/span> &lt;span style="color:#bd93f9">48&lt;/span> &lt;span style="color:#bd93f9">89&lt;/span> &lt;span style="color:#bd93f9">44&lt;/span> &lt;span style="color:#bd93f9">24&lt;/span> &lt;span style="color:#bd93f9">10&lt;/span> &lt;span style="color:#bd93f9">48&lt;/span> &lt;span style="color:#bd93f9">83&lt;/span> c0 &lt;span style="color:#bd93f9">05&lt;/span> &lt;span style="color:#bd93f9">48&lt;/span> &lt;span style="color:#bd93f9">89&lt;/span> H.D$.H.D$.H...H.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span> 0&lt;span style="color:#50fa7b">x0010&lt;/span> &lt;span style="color:#bd93f9">44&lt;/span> &lt;span style="color:#bd93f9">24&lt;/span> &lt;span style="color:#bd93f9">18&lt;/span> c3 D$..
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我只截取了和main，one函数相关的部分
+&lt;code>TEXT &amp;quot;&amp;quot;.one(SB), NOSPLIT|ABIInternal, $0-24&lt;/code>这行最后， &lt;strong>$0-24&lt;/strong> 的含义，0代表one函数的栈帧大小(局部变量+可能需要的额外调用函数的参数空间的总大小)，
+因为one函数中没有额外开销，所有大小是0，24是传入参数和返回值的大小，单位是字节。传入的参数和返回值都是&lt;strong>int&lt;/strong>，在64位机器上，大小是8个字节，64位。&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-786702857f8ab1b9.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-786702857f8ab1b9.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>简单画一下栈的示意图&lt;/p>
+&lt;p>看一下这句 &lt;code>0x0000 00000 (C:\Users\bruce\Desktop\go\main.go:8) MOVQ &amp;quot;&amp;quot;.a+8(SP), AX&lt;/code>&lt;/p>
+&lt;p>&lt;strong>SP&lt;/strong> 寄存器指向的是栈顶的位置，&lt;strong>AX&lt;/strong> 是一个通用寄存器
+&lt;strong>MOVQ&lt;/strong> 指令 把 参数a 也就是(SP+8)的值搬到AX中&lt;/p>
+&lt;hr>
+&lt;p>&lt;code> 0x0005 00005 (C:\Users\bruce\Desktop\go\main.go:8) MOVQ AX, &amp;quot;&amp;quot;.~r1+16(SP)&lt;/code>&lt;/p>
+&lt;p>同样，把AX中的值搬到r1（返回值b）&lt;/p>
+&lt;hr>
+&lt;p>&lt;code>0x000a 00010 (C:\Users\bruce\Desktop\go\main.go:8) ADDQ $5, AX&lt;/code>
+&lt;strong>ADDQ&lt;/strong>指令把AX值+5&lt;/p>
+&lt;p>&lt;code> 0x000e 00014 (C:\Users\bruce\Desktop\go\main.go:8) MOVQ AX, &amp;quot;&amp;quot;.~r2+24(SP)&lt;/code>
+最后把AX的值搬到r2(返回值c)&lt;/p>
+&lt;p>&lt;code> 0x0013 00019 (C:\Users\bruce\Desktop\go\main.go:8) RET&lt;/code>
+最后RET指令，one函数结束&lt;/p>
+&lt;p>&lt;strong>总结&lt;/strong>&lt;/p>
+&lt;p>通过对golang进行汇编，真实了之前的结论&lt;/p>
+&lt;p>&lt;strong>golang函数的多返回值不是通过寄存器传递，使用过使用调用值提供的地址，赋值实现的&lt;/strong>&lt;/p>
+&lt;p>先写这些吧，我也是刚接触golang的汇编，文中如有不正确的地方，还请在评论区指出&lt;/p></description></item></channel></rss>

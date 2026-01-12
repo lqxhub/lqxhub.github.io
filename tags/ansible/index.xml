@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ansible on QX 的笔记</title><link>https://lqxhub.github.io/tags/ansible/</link><description>Recent content in Ansible on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 13 Jun 2020 17:06:53 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/ansible/index.xml" rel="self" type="application/rss+xml"/><item><title>ansible 在参数中传入密码</title><link>https://lqxhub.github.io/posts/f6596db0/</link><pubDate>Sat, 13 Jun 2020 17:06:53 +0000</pubDate><guid>https://lqxhub.github.io/posts/f6596db0/</guid><description>&lt;p>ansible是一个基于python开发自动化的运维工具，这个工具强大的地方是，被操作的机器上不需要安装任何软件，只需要在发起操作的机器上安装就可以使用了。
+而且ansible支持很多模块，还可以基于ansible二次开发，添加自己的功能&lt;/p>
+&lt;p>ansible功能和模块很多，这次我们只讲其中的一个。在命令行中，直接把要操作主机的用户名和密码传入。别的东西等以后有时间会继续写的，毕竟996太累了&lt;/p>
+&lt;p>正常使用ansible一般都是 在 &lt;code>/ect/ansible/hosts&lt;/code> 中配置远程主机的用户和密码
+一般写法&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>[test]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>one ansible_ssh_host=192.168.199.209 ansible_ssh_port=22 ansible_ssh_user=root ansible_ssh_pass=123456
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>然后使用命令行
+&lt;code>ansible test -m ping&lt;/code>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-cfb7e759ab9cb508.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-cfb7e759ab9cb508.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>看到截图，说明已经ping通，说明配置是没问题的&lt;/p>
+&lt;p>有时候，需要单独指定连接一台主机，或者只是临时连接一次，这时候没必要在&lt;strong>hosts&lt;/strong>文件中配置，可以直接在命令行中传入主机ip和连接用户名和密码
+&lt;code>ansible all -i &amp;quot;192.168.199.209:22,&amp;quot; -m ping -e&amp;quot;ansible_user=root ansible_password=123456&amp;quot;&lt;/code>
+&lt;strong>注意&lt;/strong>：ip后面一定要有一个&amp;quot;,&amp;quot;
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e2301bcfad8e9e6a.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e2301bcfad8e9e6a.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>截图中，说明没问题&lt;/p>
+&lt;p>好了先写这些，ansible模块跟多，功能很多。尤其是playbook这个东西，更是牛逼，以后有时间继续写&lt;/p></description></item></channel></rss>
