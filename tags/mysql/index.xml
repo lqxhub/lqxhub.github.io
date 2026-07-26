@@ -1,0 +1,740 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>MySQL on QX 的笔记</title><link>https://lqxhub.github.io/tags/mysql/</link><description>Recent content in MySQL on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 21 Jun 2020 11:27:54 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/mysql/index.xml" rel="self" type="application/rss+xml"/><item><title>go数据库查询 unsupported Scan</title><link>https://lqxhub.github.io/posts/5c491bc1/</link><pubDate>Sun, 21 Jun 2020 11:27:54 +0000</pubDate><guid>https://lqxhub.github.io/posts/5c491bc1/</guid><description>&lt;p>使用go查询数据库时，有时候会遇到 **scan error sql: Scan error on column index XXXXX unsupported Scan, storing driver.Value type &lt;nil>**这个错误，&lt;/p>
+&lt;p>这个错误产生的原因是，查询的结果中有的值是&lt;strong>NULL&lt;/strong> ， 导致在读查询结果时，遇到&lt;strong>NUL&lt;/strong> 类型的数值，无法正确读出数值
+现在通过一个简单的例子复现一下
+先创建一个简单的表&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">CREATE&lt;/span> &lt;span style="color:#ff79c6">TABLE&lt;/span> &lt;span style="color:#ff79c6">`&lt;/span>&lt;span style="color:#ff79c6">user&lt;/span>&lt;span style="color:#ff79c6">`&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">int&lt;/span>(&lt;span style="color:#bd93f9">11&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>name&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">varchar&lt;/span>(&lt;span style="color:#bd93f9">255&lt;/span>) &lt;span style="color:#ff79c6">DEFAULT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> &lt;span style="color:#ff79c6">PRIMARY&lt;/span> &lt;span style="color:#ff79c6">KEY&lt;/span> (&lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>) ENGINE&lt;span style="color:#ff79c6">=&lt;/span>InnoDB &lt;span style="color:#ff79c6">DEFAULT&lt;/span> CHARSET&lt;span style="color:#ff79c6">=&lt;/span>utf8;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>其中 &lt;code>name&lt;/code>这个字段默认是&lt;code>NULL&lt;/code> 的，现在插入几条数据&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span> &lt;span style="color:#ff79c6">insert&lt;/span> &lt;span style="color:#ff79c6">into&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span>(&lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span>,&lt;span style="color:#ff79c6">`&lt;/span>name&lt;span style="color:#ff79c6">`&lt;/span>) &lt;span style="color:#ff79c6">values&lt;/span>(&lt;span style="color:#bd93f9">1&lt;/span>,&lt;span style="color:#f1fa8c">&amp;#39;A&amp;#39;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> &lt;span style="color:#ff79c6">insert&lt;/span> &lt;span style="color:#ff79c6">into&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span>(&lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span>,&lt;span style="color:#ff79c6">`&lt;/span>name&lt;span style="color:#ff79c6">`&lt;/span>) &lt;span style="color:#ff79c6">values&lt;/span>(&lt;span style="color:#bd93f9">2&lt;/span>,&lt;span style="color:#f1fa8c">&amp;#39;B&amp;#39;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">insert&lt;/span> &lt;span style="color:#ff79c6">into&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span>(&lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span>,&lt;span style="color:#ff79c6">`&lt;/span>name&lt;span style="color:#ff79c6">`&lt;/span>) &lt;span style="color:#ff79c6">values&lt;/span>(&lt;span style="color:#bd93f9">3&lt;/span>,&lt;span style="color:#ff79c6">NULL&lt;/span>);
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>go代码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">package&lt;/span> main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;database/sql&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> &lt;span style="color:#f1fa8c">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> _ &lt;span style="color:#f1fa8c">&amp;#34;github.com/go-sql-driver/mysql&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">type&lt;/span> User &lt;span style="color:#8be9fd;font-style:italic">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> id &lt;span style="color:#8be9fd">uint32&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> name &lt;span style="color:#8be9fd">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> db &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#50fa7b">Conn&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> db &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> result &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">make&lt;/span>([]&lt;span style="color:#ff79c6">*&lt;/span>User, &lt;span style="color:#bd93f9">0&lt;/span>, &lt;span style="color:#bd93f9">10&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> q &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#f1fa8c">&amp;#34;SELECT `id`, `name` FROM `user`&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> rows, err &lt;span style="color:#ff79c6">:=&lt;/span> db.&lt;span style="color:#50fa7b">Query&lt;/span>(q); err &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> rows.&lt;span style="color:#50fa7b">Next&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> id &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">uint32&lt;/span>(&lt;span style="color:#bd93f9">0&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24&lt;/span>&lt;span> name &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#f1fa8c">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">:=&lt;/span> rows.&lt;span style="color:#50fa7b">Scan&lt;/span>(&lt;span style="color:#ff79c6">&amp;amp;&lt;/span>id, &lt;span style="color:#ff79c6">&amp;amp;&lt;/span>name); err &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26&lt;/span>&lt;span> result = &lt;span style="color:#8be9fd;font-style:italic">append&lt;/span>(result, &lt;span style="color:#ff79c6">&amp;amp;&lt;/span>User{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27&lt;/span>&lt;span> id: id,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28&lt;/span>&lt;span> name: name,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29&lt;/span>&lt;span> })
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30&lt;/span>&lt;span> } &lt;span style="color:#ff79c6">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;rows scan error&amp;#34;&lt;/span>, err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34&lt;/span>&lt;span> } &lt;span style="color:#ff79c6">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;query error&amp;#34;&lt;/span>, err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> _, v &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#ff79c6">range&lt;/span> result {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(v)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">func&lt;/span> &lt;span style="color:#50fa7b">Conn&lt;/span>() &lt;span style="color:#ff79c6">*&lt;/span>sql.DB {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43&lt;/span>&lt;span> db, err &lt;span style="color:#ff79c6">:=&lt;/span> sql.&lt;span style="color:#50fa7b">Open&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;mysql&amp;#34;&lt;/span>, &lt;span style="color:#f1fa8c">&amp;#34;root:123456@tcp(127.0.0.1)/go_test&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Print&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;sql open error&amp;#34;&lt;/span>, err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48&lt;/span>&lt;span> err2 &lt;span style="color:#ff79c6">:=&lt;/span> db.&lt;span style="color:#50fa7b">Ping&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err2 &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">50&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Print&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;sql pin error&amp;#34;&lt;/span>, err2)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">51&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">52&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">53&lt;/span>&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> db
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">54&lt;/span>&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>运行后，报错
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-8520c816e78b89fe.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-8520c816e78b89fe.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>这个错误有两种解决办法&lt;/p>
+&lt;ol>
+&lt;li>从数据层面解决，把&lt;code>name&lt;/code>字段设置为非空字段，并且默认值设置为**&amp;quot;&amp;quot;**空字符串，问题就解决了
+改一下表&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">CREATE&lt;/span> &lt;span style="color:#ff79c6">TABLE&lt;/span> &lt;span style="color:#ff79c6">`&lt;/span>&lt;span style="color:#ff79c6">user&lt;/span>&lt;span style="color:#ff79c6">`&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">int&lt;/span>(&lt;span style="color:#bd93f9">11&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>name&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">varchar&lt;/span>(&lt;span style="color:#bd93f9">255&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span> &lt;span style="color:#ff79c6">DEFAULT&lt;/span> &lt;span style="color:#f1fa8c">&amp;#39;&amp;#39;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> &lt;span style="color:#ff79c6">PRIMARY&lt;/span> &lt;span style="color:#ff79c6">KEY&lt;/span> (&lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>) ENGINE&lt;span style="color:#ff79c6">=&lt;/span>InnoDB &lt;span style="color:#ff79c6">DEFAULT&lt;/span> CHARSET&lt;span style="color:#ff79c6">=&lt;/span>utf8;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>查询结果是正常的
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-3403681411e0e9a8.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-3403681411e0e9a8.webp" alt="" />
+&lt;/a>
+&lt;/div>
+对于一些特殊的查询，结果中难免会有NULL值，比如连接查询等等，这时候需要用第二种方式来解决
+2. 使用go 提供的 &lt;code>sql.NullString&lt;/code>类型值来结局，这个是&lt;code>string&lt;/code>类型的， go 还提供了其他类型的，还有&lt;code>NullBool&lt;/code>bool类型的，&lt;code>NullFloat64&lt;/code>float64类型的，&lt;code>NullInt64&lt;/code> int64类型的&lt;/p>
+&lt;p>为了方便，还是把表改回最开始，&lt;code>name&lt;/code>默认是NULL类型的
+修改一下代码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span> result &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">make&lt;/span>([]&lt;span style="color:#ff79c6">*&lt;/span>User, &lt;span style="color:#bd93f9">0&lt;/span>, &lt;span style="color:#bd93f9">10&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span> q &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#f1fa8c">&amp;#34;SELECT `id`, `name` FROM `user`&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> rows, err &lt;span style="color:#ff79c6">:=&lt;/span> db.&lt;span style="color:#50fa7b">Query&lt;/span>(q); err &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> rows.&lt;span style="color:#50fa7b">Next&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span> id &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">uint32&lt;/span>(&lt;span style="color:#bd93f9">0&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">var&lt;/span> name sql.NullString
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> err &lt;span style="color:#ff79c6">:=&lt;/span> rows.&lt;span style="color:#50fa7b">Scan&lt;/span>(&lt;span style="color:#ff79c6">&amp;amp;&lt;/span>id, &lt;span style="color:#ff79c6">&amp;amp;&lt;/span>name); err &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#ff79c6">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> u &lt;span style="color:#ff79c6">:=&lt;/span> &lt;span style="color:#ff79c6">&amp;amp;&lt;/span>User{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> id: id,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> name.Valid {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span> u.name = name.String
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span> } &lt;span style="color:#ff79c6">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span> u.name = &lt;span style="color:#f1fa8c">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span> result = &lt;span style="color:#8be9fd;font-style:italic">append&lt;/span>(result, u)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> } &lt;span style="color:#ff79c6">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;rows scan error&amp;#34;&lt;/span>, err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span> } &lt;span style="color:#ff79c6">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span> fmt.&lt;span style="color:#50fa7b">Println&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#34;query error&amp;#34;&lt;/span>, err)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23&lt;/span>&lt;span> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>把 &lt;strong>name&lt;/strong> 的类型改为 &lt;code>sql.NullString&lt;/code> 并且在查询完成后，判断一下name是否有效&lt;/p>
+&lt;p>看一下结果
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-769aaf949bb03f93.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-769aaf949bb03f93.webp" alt="" />
+&lt;/a>
+&lt;/div>
+没有问题&lt;/p>
+&lt;p>到这问题解决了&lt;/p></description></item><item><title>mysql使用 from两表查询与join两表查询区别</title><link>https://lqxhub.github.io/posts/63c229e6/</link><pubDate>Thu, 27 Dec 2018 11:29:19 +0000</pubDate><guid>https://lqxhub.github.io/posts/63c229e6/</guid><description>&lt;p>在mysql中,多表连接查询是很常见的需求,在使用多表查询时,可以from多个表,也可以使用&lt;code>join&lt;/code>连接连个表
+这两种查询有什么区别?哪种查询的效率更高呢? 带着这些疑问,决定动手试试&lt;/p>
+&lt;p>1.先在本地的mysql上先建两个表&lt;code>one&lt;/code>和&lt;code>two&lt;/code>
+one表&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">CREATE&lt;/span> &lt;span style="color:#ff79c6">TABLE&lt;/span> &lt;span style="color:#ff79c6">`&lt;/span>one&lt;span style="color:#ff79c6">`&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">int&lt;/span>(&lt;span style="color:#bd93f9">0&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span> AUTO_INCREMENT,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>one&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">varchar&lt;/span>(&lt;span style="color:#bd93f9">100&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> &lt;span style="color:#ff79c6">PRIMARY&lt;/span> &lt;span style="color:#ff79c6">KEY&lt;/span> (&lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>) ENGINE &lt;span style="color:#ff79c6">=&lt;/span> InnoDB &lt;span style="color:#8be9fd;font-style:italic">CHARACTER&lt;/span> &lt;span style="color:#ff79c6">SET&lt;/span> &lt;span style="color:#ff79c6">=&lt;/span> utf8;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>two表&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">CREATE&lt;/span> &lt;span style="color:#ff79c6">TABLE&lt;/span> &lt;span style="color:#ff79c6">`&lt;/span>two&lt;span style="color:#ff79c6">`&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">int&lt;/span>(&lt;span style="color:#bd93f9">0&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span> AUTO_INCREMENT,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>two&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">varchar&lt;/span>(&lt;span style="color:#bd93f9">100&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> &lt;span style="color:#ff79c6">PRIMARY&lt;/span> &lt;span style="color:#ff79c6">KEY&lt;/span> (&lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>) ENGINE &lt;span style="color:#ff79c6">=&lt;/span> InnoDB &lt;span style="color:#8be9fd;font-style:italic">CHARACTER&lt;/span> &lt;span style="color:#ff79c6">SET&lt;/span> &lt;span style="color:#ff79c6">=&lt;/span> utf8;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>先随便插入几条数据,查询看一下;&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">select&lt;/span> one.id,one.one,two.id,two.two &lt;span style="color:#ff79c6">from&lt;/span> one,two &lt;span style="color:#ff79c6">where&lt;/span> one.id&lt;span style="color:#ff79c6">=&lt;/span>two.id;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-5113ee7537d10f77.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-5113ee7537d10f77.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">select&lt;/span> one.id,one.one,two.id,two.two &lt;span style="color:#ff79c6">from&lt;/span> one &lt;span style="color:#ff79c6">join&lt;/span> two &lt;span style="color:#ff79c6">on&lt;/span> one.id&lt;span style="color:#ff79c6">=&lt;/span>two.id;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-a8130abdd05dc2e9.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-a8130abdd05dc2e9.webp" alt="" />
+&lt;/a>
+&lt;/div>
+对比这两次的查询,查询时间几乎没有区别,查看sql运行分析,也没有区别&lt;/p>
+&lt;p>为了突出两种查询的性能差异,往&lt;code>one&lt;/code>表中插入100w条数据,往&lt;code>two&lt;/code>表中插入10w条数据,在大量数据面前,一丝一毫的差别也会被无限放大;这时候在来比较一下差异&lt;/p>
+&lt;p>先使用python往数据库中插入数据,为啥用python,因为python写起了简单
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-90418ea42c193a16.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-90418ea42c193a16.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>上代码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-python" data-lang="python">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">import&lt;/span> pymysql
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3&lt;/span>&lt;span>db &lt;span style="color:#ff79c6">=&lt;/span> pymysql&lt;span style="color:#ff79c6">.&lt;/span>connect(&lt;span style="color:#f1fa8c">&amp;#34;127.0.0.1&amp;#34;&lt;/span>, &lt;span style="color:#f1fa8c">&amp;#39;root&amp;#39;&lt;/span>, &lt;span style="color:#f1fa8c">&amp;#34;123456&amp;#34;&lt;/span>, &lt;span style="color:#f1fa8c">&amp;#34;bruce&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4&lt;/span>&lt;span>cursor &lt;span style="color:#ff79c6">=&lt;/span> db&lt;span style="color:#ff79c6">.&lt;/span>cursor()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6&lt;/span>&lt;span>sql &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#f1fa8c">&amp;#34;INSERT INTO one (one) values (&lt;/span>&lt;span style="color:#f1fa8c">%s&lt;/span>&lt;span style="color:#f1fa8c">)&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7&lt;/span>&lt;span>&lt;span style="color:#ff79c6">for&lt;/span> i &lt;span style="color:#ff79c6">in&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">range&lt;/span>(&lt;span style="color:#bd93f9">1000000&lt;/span>):
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8&lt;/span>&lt;span> cursor&lt;span style="color:#ff79c6">.&lt;/span>executemany(sql, [&lt;span style="color:#f1fa8c">&amp;#39;one&amp;#39;&lt;/span> &lt;span style="color:#ff79c6">+&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">str&lt;/span>(i)])
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> i &lt;span style="color:#ff79c6">%&lt;/span> &lt;span style="color:#bd93f9">10000&lt;/span> &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10&lt;/span>&lt;span> db&lt;span style="color:#ff79c6">.&lt;/span>commit()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">print&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">str&lt;/span>(i) &lt;span style="color:#ff79c6">+&lt;/span> &lt;span style="color:#f1fa8c">&amp;#39;次 commit&amp;#39;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12&lt;/span>&lt;span>db&lt;span style="color:#ff79c6">.&lt;/span>commit()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13&lt;/span>&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">print&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#39;insert one ok&amp;#39;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15&lt;/span>&lt;span>sql2 &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#f1fa8c">&amp;#34;INSERT INTO two (two) values (&lt;/span>&lt;span style="color:#f1fa8c">%s&lt;/span>&lt;span style="color:#f1fa8c">)&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16&lt;/span>&lt;span>&lt;span style="color:#ff79c6">for&lt;/span> i &lt;span style="color:#ff79c6">in&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">range&lt;/span>(&lt;span style="color:#bd93f9">100000&lt;/span>):
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17&lt;/span>&lt;span> cursor&lt;span style="color:#ff79c6">.&lt;/span>executemany(sql2, [&lt;span style="color:#f1fa8c">&amp;#39;two&amp;#39;&lt;/span> &lt;span style="color:#ff79c6">+&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">str&lt;/span>(i)])
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18&lt;/span>&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> i &lt;span style="color:#ff79c6">%&lt;/span> &lt;span style="color:#bd93f9">10000&lt;/span> &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19&lt;/span>&lt;span> db&lt;span style="color:#ff79c6">.&lt;/span>commit()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20&lt;/span>&lt;span> &lt;span style="color:#8be9fd;font-style:italic">print&lt;/span>(&lt;span style="color:#8be9fd;font-style:italic">str&lt;/span>(i) &lt;span style="color:#ff79c6">+&lt;/span> &lt;span style="color:#f1fa8c">&amp;#39;次 commit&amp;#39;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21&lt;/span>&lt;span>db&lt;span style="color:#ff79c6">.&lt;/span>commit()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22&lt;/span>&lt;span>&lt;span style="color:#8be9fd;font-style:italic">print&lt;/span>(&lt;span style="color:#f1fa8c">&amp;#39;insert two ok&amp;#39;&lt;/span>)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>耐心等待一会,插入需要一些时间;&lt;/p>
+&lt;p>等数据插入完成,来查询一些看看
+先使用&lt;code>FROM&lt;/code>两个表查询&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">select&lt;/span> one.id,one.one,two.id,two.two &lt;span style="color:#ff79c6">from&lt;/span> one,two &lt;span style="color:#ff79c6">where&lt;/span> one.id&lt;span style="color:#ff79c6">=&lt;/span>two.id;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-f4d293c042096b1a.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-f4d293c042096b1a.webp" alt="" />
+&lt;/a>
+&lt;/div>
+用时大约20.49;&lt;/p>
+&lt;p>再用&lt;code>JOIN&lt;/code>查询看一下&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">select&lt;/span> one.id,one.one,two.id,two.two &lt;span style="color:#ff79c6">from&lt;/span> one &lt;span style="color:#ff79c6">join&lt;/span> two &lt;span style="color:#ff79c6">on&lt;/span> one.id&lt;span style="color:#ff79c6">=&lt;/span>two.id;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-6cfdb7498181131e.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-6cfdb7498181131e.webp" alt="" />
+&lt;/a>
+&lt;/div>
+用时19.45,在10w条数据中,1秒的误差并不算大,
+查看一下使用id作为条件约束时的查询
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-de36facc1c1bf331.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-de36facc1c1bf331.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-73ea585e7ba392e4.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-73ea585e7ba392e4.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>查询时间没有差别&lt;/p>
+&lt;p>再看一下sql执行分析
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-06f5c3b595c67f18.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-06f5c3b595c67f18.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-d61ec19b6c72db3f.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-d61ec19b6c72db3f.webp" alt="" />
+&lt;/a>
+&lt;/div>
+结果还是一样的&lt;/p>
+&lt;p>&lt;strong>总结&lt;/strong>
+在mysql中使用&lt;code>FROM&lt;/code>查询多表和使用&lt;code>JOIN&lt;/code>连接(&lt;code>LEFT JOIN&lt;/code>,&lt;code>RIGHT JOIN&lt;/code>除外),查询结果,查询效率是一样的&lt;/p></description></item><item><title>使用mysql中的锁解决高并发问题</title><link>https://lqxhub.github.io/posts/a8083c8/</link><pubDate>Fri, 23 Nov 2018 17:17:26 +0000</pubDate><guid>https://lqxhub.github.io/posts/a8083c8/</guid><description>&lt;h2 id="为什么要加锁">&lt;a href="#%e4%b8%ba%e4%bb%80%e4%b9%88%e8%a6%81%e5%8a%a0%e9%94%81" class="header-anchor">&lt;/a>为什么要加锁
+&lt;/h2>&lt;blockquote>
+&lt;p>多核计算机的出现,计算机实现真正并行计算,可以在同一时刻,执行多个任务。在多线程编程中，因为线程执行顺序不可控导致的数据错误。比如，多线程的理想状态是这样的
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-801bea6ef02b13d6.jpg">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-801bea6ef02b13d6.jpg" alt="多线程理想.jpg" />
+&lt;/a>
+&lt;/div>
+但是实际情况是这样的:
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-bf3f64430beeca01.jpg">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-bf3f64430beeca01.jpg" alt="多线程实际.jpg" />
+&lt;/a>
+&lt;/div>
+在网络编程中，在同一时刻，多个客户端同时请求同一个资源，如果不做控制，也会带来数据错误。比如在同一时间有10000人去抢10张火车票，10张火车票有可能会买给100个人，这显然是不符合要求的。
+在多线程编程中,为了解决线程执行不可控带来的问题,通常情况下都是通过加锁来实现数据同步的。在网络编程中，也可以通过加锁机制来控制。&lt;/p>
+&lt;/blockquote>
+&lt;p>在网络编程中，可以通过给数据库加锁，达到控制并发的目的。在php开发时，基本都是使用mysql作为数据库。所以，就会给mysql加锁控制网络并发引起数据错误问题。&lt;/p>
+&lt;h2 id="mysql的存储引擎">&lt;a href="#mysql%e7%9a%84%e5%ad%98%e5%82%a8%e5%bc%95%e6%93%8e" class="header-anchor">&lt;/a>MySQL的存储引擎
+&lt;/h2>&lt;blockquote>
+&lt;p>不是要说MySQL的锁吗,怎么说上存储引擎了?因为MySQL存储引擎不同,锁也会不同。MySQL有&lt;strong>MyISAM&lt;/strong> 和&lt;strong>InnoDB&lt;/strong>两种存储引擎，现在主要使用InnoDB,所以主要介绍InnoDB下锁的使用。&lt;/p>
+&lt;/blockquote>
+&lt;p>InnoDB引擎支持事务操作，使用事务可以保证多条sql语句执行的完整性(要不都成功,要不都失败)&lt;/p>
+&lt;h5 id="事务是由一组sql语句组成的逻辑处理单元事务具有4属性">&lt;a href="#%e4%ba%8b%e5%8a%a1%e6%98%af%e7%94%b1%e4%b8%80%e7%bb%84sql%e8%af%ad%e5%8f%a5%e7%bb%84%e6%88%90%e7%9a%84%e9%80%bb%e8%be%91%e5%a4%84%e7%90%86%e5%8d%95%e5%85%83%e4%ba%8b%e5%8a%a1%e5%85%b7%e6%9c%894%e5%b1%9e%e6%80%a7" class="header-anchor">&lt;/a>事务是由一组SQL语句组成的逻辑处理单元，事务具有4属性
+&lt;/h5>&lt;ul>
+&lt;li>原子性（Actomicity）：事务是一个原子操作单元，其对数据的修改，要么全都执行，要么全都不执行。&lt;/li>
+&lt;li>一致性（Consistent）：在事务开始和完成时，数据都必须保持一致状态。这意味着所有相关的数据规则都必须应用于事务的修改，以操持完整性；事务结束时，所有的内部数据结构（如B树索引或双向链表）也都必须是正确的。&lt;/li>
+&lt;li>隔离性（Isolation）：数据库系统提供一定的隔离机制，保证事务在不受外部并发操作影响的“独立”环境执行。这意味着事务处理过程中的中间状态对外部是不可见的，反之亦然。&lt;/li>
+&lt;li>持久性（Durable）：事务完成之后，它对于数据的修改是永久性的，即使出现系统故障也能够保持。&lt;/li>
+&lt;/ul>
+&lt;h5 id="多个事务并发执行会带来新的问题">&lt;a href="#%e5%a4%9a%e4%b8%aa%e4%ba%8b%e5%8a%a1%e5%b9%b6%e5%8f%91%e6%89%a7%e8%a1%8c%e4%bc%9a%e5%b8%a6%e6%9d%a5%e6%96%b0%e7%9a%84%e9%97%ae%e9%a2%98" class="header-anchor">&lt;/a>多个事务并发执行会带来新的问题
+&lt;/h5>&lt;ul>
+&lt;li>更新丢失（Lost Update）：当两个或多个事务选择同一行，然后基于最初选定的值更新该行时，由于每个 事务都不知道其他事务的存在，就会发生丢失更新问题——最后的更新覆盖了其他事务所做的更新。例如，两个编辑人员制作了同一文档的电子副本。每个编辑人员独立地更改其副本，然后保存更改后的副本，这样就覆盖了原始文档。最后保存其更改保存其更改副本的编辑人员覆盖另一个编辑人员所做的修改。如果在一个编辑人员完成并提交事务之前，另一个编辑人员不能访问同一文件，则可避免此问题&lt;/li>
+&lt;li>脏读（Dirty Reads）：一个事务正在对一条记录做修改，在这个事务并提交前，这条记录的数据就处于不一致状态；这时，另一个事务也来读取同一条记录，如果不加控制，第二个事务读取了这些“脏”的数据，并据此做进一步的处理，就会产生未提交的数据依赖关系。这种现象被形象地叫做“脏读”。&lt;/li>
+&lt;li>不可重复读（Non-Repeatable Reads）：一个事务在读取某些数据已经发生了改变、或某些记录已经被删除了！这种现象叫做“不可重复读”。&lt;/li>
+&lt;li>幻读（Phantom Reads）：一个事务按相同的查询条件重新读取以前检索过的数据，却发现其他事务插入了满足其查询条件的新数据，这种现象就称为“幻读”。&lt;/li>
+&lt;/ul>
+&lt;p>曾经年少无知的我,以为使用事务就能保证并发情况下数据同步问题,后来的一次惨痛经历才明白了,事务不能保证并发情况的数据同步问题,需要事务和锁同时使用才能保证。&lt;/p>
+&lt;h2 id="锁的种类">&lt;a href="#%e9%94%81%e7%9a%84%e7%a7%8d%e7%b1%bb" class="header-anchor">&lt;/a>锁的种类
+&lt;/h2>&lt;blockquote>
+&lt;ul>
+&lt;li>乐观锁 机制采取了更加宽松的加锁机制。悲观锁大多数情况下依靠数据库的锁机制实现，以保证操作最大程度的独占性。但随之而来的就是数据库性能的大量开销，特别是对长事务而言，这样的开销往往无法承受。相对悲观锁而言，乐观锁更倾向于开发运用。&lt;/li>
+&lt;li>悲观锁 具有强烈的独占和排他特性。它指的是对数据被外界（包括本系统当前的其他事务，以及来自外部系统的事务处理）修改持保守态度，因此，在整个数据处理过程中，将数据处于锁定状态。悲观锁的实现，往往依靠数据库提供的锁机制（也只有数据库层提供的锁机制才能真正保证数据访问的排他性，否则，即使在本系统中实现了加锁机制，也无法保证外部系统不会修改数据）。&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="mysql中锁的种类">&lt;a href="#mysql%e4%b8%ad%e9%94%81%e7%9a%84%e7%a7%8d%e7%b1%bb" class="header-anchor">&lt;/a>MySQL中锁的种类
+&lt;/h2>&lt;blockquote>
+&lt;p>乐观锁和悲观锁是一种思想,不是具体实现,在MySQL中,有锁的具体的实现方式
+(文中的线程在MySQL中可以视作MySQL的连接)&lt;/p>
+&lt;ul>
+&lt;li>共享锁 一个线程在持有锁时,其他的线程可以查询被锁的数据,但是不能修改,不能删除。实现方式
+&lt;code> SELECT * FROM table_name WHERE id =? lock in share mode;&lt;/code>&lt;/li>
+&lt;li>排它锁 一个线程在持有锁时,其他的线程不能查询,不能更新,不能删除被锁的数据,直到锁被释放.
+&amp;gt; &lt;code>SELECT * FROM table_name WHERE id =? for update&lt;/code>&lt;/li>
+&lt;li>总结一下:共享锁类似于java中的读锁,一个线程在持有乐观锁的时候,其他的线程也可以对被锁的数据进行读操作,但是不能对被锁的数据进行删除和更新操作;排他锁类似于java的写锁,一个线程持有写锁的时候,其他的线程不能再对被锁的数据进行任何查询,更新,删除操作。&lt;/li>
+&lt;li>&lt;strong>重点&lt;/strong> InnoDB的行锁是基于索引实现的,如果在查询中不使用索引,会锁表。&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="mysql锁粒度">&lt;a href="#mysql%e9%94%81%e7%b2%92%e5%ba%a6" class="header-anchor">&lt;/a>MySQL锁粒度
+&lt;/h2>&lt;blockquote>
+&lt;ul>
+&lt;li>表级锁 是MySQL中锁定粒度最大的一种锁，表示对当前操作的整张表加锁，它实现简单，资源消耗较少，被大部分MySQL引擎支持。最常使用的MyISAM与InnoDB都支持表级锁定。表级锁分为表共享读锁与表独占写锁。&lt;/li>
+&lt;li>行级锁 是Mysql中锁定粒度最细的一种锁，表示只针对当前操作的行进行加锁。行级锁能大大减少数据库操作的冲突。其加锁粒度最小，但加锁的开销也最大。行级锁分为共享锁 和 排他锁。&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="共享锁的使用">&lt;a href="#%e5%85%b1%e4%ba%ab%e9%94%81%e7%9a%84%e4%bd%bf%e7%94%a8" class="header-anchor">&lt;/a>共享锁的使用
+&lt;/h2>&lt;h4 id="注意-下面的操作都是行锁操作mysql为innodb引擎id为自增主键">&lt;a href="#%e6%b3%a8%e6%84%8f-%e4%b8%8b%e9%9d%a2%e7%9a%84%e6%93%8d%e4%bd%9c%e9%83%bd%e6%98%af%e8%a1%8c%e9%94%81%e6%93%8d%e4%bd%9cmysql%e4%b8%bainnodb%e5%bc%95%e6%93%8eid%e4%b8%ba%e8%87%aa%e5%a2%9e%e4%b8%bb%e9%94%ae" class="header-anchor">&lt;/a>注意: 下面的操作,都是行锁操作,MySQL为InnoDB引擎,id为自增主键
+&lt;/h4>&lt;p>先创建一个测试表&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">CREATE&lt;/span> &lt;span style="color:#ff79c6">TABLE&lt;/span> &lt;span style="color:#ff79c6">`&lt;/span>test&lt;span style="color:#ff79c6">`&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">int&lt;/span>(&lt;span style="color:#bd93f9">0&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span> AUTO_INCREMENT,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>name&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">varchar&lt;/span>(&lt;span style="color:#bd93f9">20&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>&lt;span style="color:#8be9fd;font-style:italic">number&lt;/span>&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">bigint&lt;/span>(&lt;span style="color:#bd93f9">0&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> &lt;span style="color:#ff79c6">`&lt;/span>age&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">int&lt;/span>(&lt;span style="color:#bd93f9">0&lt;/span>) &lt;span style="color:#ff79c6">NULL&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> &lt;span style="color:#ff79c6">PRIMARY&lt;/span> &lt;span style="color:#ff79c6">KEY&lt;/span> (&lt;span style="color:#ff79c6">`&lt;/span>id&lt;span style="color:#ff79c6">`&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span>) ENGINE &lt;span style="color:#ff79c6">=&lt;/span> InnoDB;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>看一下随便插入的几条数据
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b259874f3254fd99.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-b259874f3254fd99.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;blockquote>
+&lt;p>没有问题,使用共享锁看一下效果:&lt;/p>
+&lt;ol>
+&lt;li>开启事务 &lt;code>begin;&lt;/code>&lt;/li>
+&lt;li>给id为1的数据加共享锁 &lt;code>mysql&amp;gt; select * from test where id=1 lock in share mode;&lt;/code>&lt;/li>
+&lt;li>分别使用加锁和不加锁查询id为1 的数据
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-811690b2ef25d25d.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-811690b2ef25d25d.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&amp;gt;都可以查询到数据&lt;/li>
+&lt;/ol>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>修改id为1 的数据看看
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-ba4482476ff9ee78.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-ba4482476ff9ee78.webp" alt="" />
+&lt;/a>
+&lt;/div>
+sql语句会一直停在这里,直到超时或者锁释放(事务提交或者回滚)
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-48184bff1a6d5188.png">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-48184bff1a6d5188.png" alt="" />
+&lt;/a>
+&lt;/div>
+左边的事务提交后,右边的sql会执行,完成更新操作。&lt;/p>
+&lt;/blockquote>
+&lt;p>同样,删除操作也会等待锁释放才能操作,这里就不演示了。&lt;/p>
+&lt;hr>
+&lt;blockquote>
+&lt;p>再看一下另一种情况,左边锁住id为5的数据,右边更新id为1 的数据,不受影响。这就是行级锁，只会锁住相关的一行数据
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-3206524302bab201.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-3206524302bab201.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="排他锁的使用">&lt;a href="#%e6%8e%92%e4%bb%96%e9%94%81%e7%9a%84%e4%bd%bf%e7%94%a8" class="header-anchor">&lt;/a>排他锁的使用
+&lt;/h2>&lt;p>还是使用test这张表&lt;/p>
+&lt;blockquote>
+&lt;ol>
+&lt;li>开启事务&lt;code>begin;&lt;/code>&lt;/li>
+&lt;li>给id1的数据加排他锁&lt;code>select * from test where id = 1 for update;&lt;/code>&lt;/li>
+&lt;li>在右边查询id为1的数据
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-cb4034d4fbf6d486.png">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-cb4034d4fbf6d486.png" alt="" />
+&lt;/a>
+&lt;/div>
+查询语句会一直等待,直到超时或者锁释放(左边commit或者rollback)&lt;/li>
+&lt;/ol>
+&lt;/blockquote>
+&lt;hr>
+&lt;blockquote>
+&lt;p>左边commit后
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9571df6d6d6969d0.png">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9571df6d6d6969d0.png" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;/blockquote>
+&lt;hr>
+&lt;blockquote>
+&lt;p>使用排它锁对id为5的数据加锁后,更新id为5的数据
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9fa71ed1dd9e7a97.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-9fa71ed1dd9e7a97.webp" alt="" />
+&lt;/a>
+&lt;/div>
+sql语句同样会等待,直到超时或者锁释放,删除操作也是一样&lt;/p>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>看一下对id为1的数据加锁,然后操作id不为1的数据的情况
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4424da5869c313f6.png">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-4424da5869c313f6.png" alt="" />
+&lt;/a>
+&lt;/div>
+没有问题,MySQL只是锁住了id为5的数据,其他的数据都可以操作。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="看一下innodb引擎锁表的情况">&lt;a href="#%e7%9c%8b%e4%b8%80%e4%b8%8binnodb%e5%bc%95%e6%93%8e%e9%94%81%e8%a1%a8%e7%9a%84%e6%83%85%e5%86%b5" class="header-anchor">&lt;/a>看一下InnoDB引擎锁表的情况
+&lt;/h3>&lt;blockquote>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-a7e3773e931456e3.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-a7e3773e931456e3.webp" alt="" />
+&lt;/a>
+&lt;/div>
+我们常常说InnoDB是行锁，但是这里介绍一下它锁表的情况。因为name列没有索引,所以,在加行锁的时候,MySQL不能加正常加行锁,会锁住整张表。
+InnoDB行锁是通过索引上的索引项来实现的，这一点ＭySQL与Oracle不同，后者是通过在数据中对相应数据行加锁来实现的。InnoDB这种行锁实现特点意味者：只有通过索引条件检索数据，InnoDB才会使用行级锁，否则，InnoDB将使用表锁！
+在实际应用中，要特别注意InnoDB行锁的这一特性，不然的话，可能导致大量的锁冲突，从而影响并发性能。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="再看另一种情况">&lt;a href="#%e5%86%8d%e7%9c%8b%e5%8f%a6%e4%b8%80%e7%a7%8d%e6%83%85%e5%86%b5" class="header-anchor">&lt;/a>再看另一种情况
+&lt;/h3>&lt;blockquote>
+&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-553d084474795bbb.png">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-553d084474795bbb.png" alt="" />
+&lt;/a>
+&lt;/div>
+使用排它锁对id为1的数据加锁时,使用不加锁的查询和没有约束的查询时,一样可以立刻查询到数据。只有使用加锁的查询或者更新和删除时才会等待锁释放。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="总结">&lt;a href="#%e6%80%bb%e7%bb%93" class="header-anchor">&lt;/a>总结
+&lt;/h2>&lt;ul>
+&lt;li>InnoDB的锁配合事务使用&lt;/li>
+&lt;li>MySQL有共享锁和排它锁&lt;/li>
+&lt;li>使用共享锁时,其他线程(连接)可以查询数据,但是不能更新和删除数据,使用排它锁时,不能查询数据不能更新数据,不能删除数据&lt;/li>
+&lt;li>MySQL的InnoDB引擎支持行级锁和表级锁,行级锁&lt;/li>
+&lt;li>InnoDB的行级锁是基于索引的,加锁是对索引加锁,加锁时没有索引时会锁住整张表&lt;/li>
+&lt;/ul>
+&lt;p>以上是我对MySQL锁的理解,文中如果有不正确的地方,还请各位大哥批评指正。&lt;/p></description></item><item><title>mysql使用索引提高查询效率</title><link>https://lqxhub.github.io/posts/82773ef8/</link><pubDate>Thu, 25 Oct 2018 09:50:04 +0000</pubDate><guid>https://lqxhub.github.io/posts/82773ef8/</guid><description>&lt;p>mysql单表中数据量到达一定数量后,查询效率会变得很低,使用索引可以有效地提高mysql的查询效率.但是索引使用不当,会使索引失效,起不到提升效率的作用,在实际项目中,要做好索引的优化,合理的使用索引。关于索引的优化，可以参考这篇文章，&lt;a class="link" href="https://www.jianshu.com/p/07c42e310e67" target="_blank" rel="noopener"
+>传送门&lt;/a>&lt;/p>
+&lt;p>为了分析sql语句执行效率,使用&lt;strong>explain&lt;/strong> 分析sql语句
+使用explain关键字可以模拟优化器执行sql查询语句，从而得知MySQL 是如何处理sql语句。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>+----+-------------+-------+------------+-------+---------------+---------+---------+-------+------+----------+-------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>| id | select_type | table | partitions | type | possible_keys | key | key_len | ref | rows | filtered | Extra |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>+----+-------------+-------+------------+-------+---------------+---------+---------+-------+------+----------+-------------+
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="id">&lt;a href="#id" class="header-anchor">&lt;/a>id
+&lt;/h2>&lt;blockquote>
+&lt;p>select 查询的序列号，包含一组可以重复的数字，表示查询中执行sql语句的顺序。一般有三种情况：
+第一种：id全部相同，sql的执行顺序是由上至下；
+第二种：id全部不同，sql的执行顺序是根据id大的优先执行；
+第三种：id既存在相同，又存在不同的。先根据id大的优先执行，再根据相同id从上至下的执行。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="select_type">&lt;a href="#select_type" class="header-anchor">&lt;/a>select_type
+&lt;/h2>&lt;blockquote>
+&lt;p>select 查询的类型，主要是用于区别普通查询，联合查询，嵌套的复杂查询
+**simple：**简单的select 查询，查询中不包含子查询或者union
+**primary：**查询中若包含任何复杂的子查询，最外层查询则被标记为primary
+**subquery：**在select或where 列表中包含了子查询
+**derived：**在from列表中包含的子查询被标记为derived（衍生）MySQL会递归执行这些子查询，把结果放在临时表里。
+**union：**若第二个select出现在union之后，则被标记为union，若union包含在from子句的子查询中，外层select将被标记为：derived
+**union result：**从union表获取结果的select&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="partitions">&lt;a href="#partitions" class="header-anchor">&lt;/a>partitions
+&lt;/h2>&lt;blockquote>
+&lt;p>表所使用的分区，如果要统计十年公司订单的金额，可以把数据分为十个区，每一年代表一个区。这样可以大大的提高查询效率。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="type">&lt;a href="#type" class="header-anchor">&lt;/a>type
+&lt;/h2>&lt;blockquote>
+&lt;p>这是一个非常重要的参数，连接类型，常见的有：all , index , range , ref , eq_ref , const , system , null 八个级别。
+性能从最优到最差的排序：system &amp;gt; const &amp;gt; eq_ref &amp;gt; ref &amp;gt; range &amp;gt; index &amp;gt; all
+在代码中,若保证查询至少达到range级别或者最好能达到ref则算是一个优秀而又负责的程序员。
+&lt;strong>all：&lt;/strong>（full table scan）全表扫描无疑是最差，若是百万千万级数据量，全表扫描会非常慢。
+&lt;strong>index：&lt;/strong>（full index scan）全索引文件扫描比all好很多，毕竟从索引树中找数据，比从全表中找数据要快。
+**range：**只检索给定范围的行，使用索引来匹配行。范围缩小了，当然比全表扫描和全索引文件扫描要快。sql语句中一般会有between，in，&amp;gt;，&amp;lt; 等查询。
+**ref：**非唯一性索引扫描，本质上也是一种索引访问，返回所有匹配某个单独值的行。比如查询公司所有属于研发团队的同事，匹配的结果是多个并非唯一值。
+**eq_ref：**唯一性索引扫描，对于每个索引键，表中有一条记录与之匹配。比如查询公司的CEO，匹配的结果只可能是一条记录，
+**const：**表示通过索引一次就可以找到，const用于比较primary key 或者unique索引。因为只匹配一行数据，所以很快，若将主键至于where列表中，MySQL就能将该查询转换为一个常量。
+**system：**表只有一条记录（等于系统表），这是const类型的特列，平时不会出现，了解即可&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="possible_keys">&lt;a href="#possible_keys" class="header-anchor">&lt;/a>possible_keys
+&lt;/h2>&lt;blockquote>
+&lt;p>显示查询语句可能用到的索引(一个或多个或为null)，不一定被查询实际使用。仅供参考使用。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="key">&lt;a href="#key" class="header-anchor">&lt;/a>key
+&lt;/h2>&lt;blockquote>
+&lt;p>显示查询语句实际使用的索引。若为null，则表示没有使用索引。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="key_len">&lt;a href="#key_len" class="header-anchor">&lt;/a>key_len
+&lt;/h2>&lt;blockquote>
+&lt;p>显示索引中使用的字节数，可通过key_len计算查询中使用的索引长度。在不损失精确性的情况下索引长度越短越好。key_len 显示的值为索引字段的最可能长度，并非实际使用长度，即key_len是根据表定义计算而得，并不是通过表内检索出的。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="ref">&lt;a href="#ref" class="header-anchor">&lt;/a>ref
+&lt;/h2>&lt;blockquote>
+&lt;p>显示索引的哪一列或常量被用于查找索引列上的值。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="rows">&lt;a href="#rows" class="header-anchor">&lt;/a>rows
+&lt;/h2>&lt;blockquote>
+&lt;p>根据表统计信息及索引选用情况，大致估算出找到所需的记录所需要读取的行数，值越大越不好。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="filtered">&lt;a href="#filtered" class="header-anchor">&lt;/a>filtered
+&lt;/h2>&lt;blockquote>
+&lt;p>一个百分比的值，和rows 列的值一起使用，可以估计出查询执行计划(QEP)中的前一个表的结果集，从而确定join操作的循环次数。小表驱动大表，减轻连接的次数。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="extra">&lt;a href="#extra" class="header-anchor">&lt;/a>extra
+&lt;/h2>&lt;blockquote>
+&lt;p>Using filesort： 说明MySQL会对数据使用一个外部的索引排序，而不是按照表内的索引顺序进行读取。MySQL中无法利用索引完成的排序操作称为“文件排序” 。出现这个就要立刻优化sql。
+**Using temporary：**使用了临时表保存中间结果，MySQL在对查询结果排序时使用临时表。常见于排序 order by 和 分组查询 group by。 出现这个更要立刻优化sql。
+&lt;strong>Using index：&lt;/strong> 表示相应的select 操作中使用了覆盖索引（Covering index），避免访问了表的数据行，效果不错！如果同时出现Using where，表明索引被用来执行索引键值的查找。如果没有同时出现Using where，表示索引用来读取数据而非执行查找动作。
+**Covering Index：**覆盖索引也叫索引覆盖，就是select 的数据列只用从索引中就能够取得，不必读取数据行，MySQL可以利用索引返回select 列表中的字段，而不必根据索引再次读取数据文件。
+&lt;strong>Using index condition：&lt;/strong> 在5.6版本后加入的新特性，优化器会在索引存在的情况下，通过符合RANGE范围的条数 和 总数的比例来选择是使用索引还是进行全表遍历。
+&lt;strong>Using where：&lt;/strong> 表明使用了where 过滤
+&lt;strong>Using join buffer：&lt;/strong> 表明使用了连接缓存
+&lt;strong>impossible where：&lt;/strong> where 语句的值总是false，不可用，不能用来获取任何元素
+&lt;strong>distinct：&lt;/strong> 优化distinct操作，在找到第一匹配的元组后即停止找同样值的动作。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="在查询中使用索引">&lt;a href="#%e5%9c%a8%e6%9f%a5%e8%af%a2%e4%b8%ad%e4%bd%bf%e7%94%a8%e7%b4%a2%e5%bc%95" class="header-anchor">&lt;/a>在查询中使用索引
+&lt;/h3>&lt;p>先创建两个表&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">CREATE&lt;/span> &lt;span style="color:#ff79c6">TABLE&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> id &lt;span style="color:#8be9fd;font-style:italic">int&lt;/span>(&lt;span style="color:#bd93f9">11&lt;/span>) UNSIGNED AUTO_INCREMENT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> &lt;span style="color:#ff79c6">PRIMARY&lt;/span> &lt;span style="color:#ff79c6">KEY&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> name &lt;span style="color:#8be9fd;font-style:italic">char&lt;/span>(&lt;span style="color:#bd93f9">10&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> age &lt;span style="color:#8be9fd;font-style:italic">int&lt;/span> &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8&lt;/span>&lt;span> ENGINE &lt;span style="color:#ff79c6">=&lt;/span> InnoDB;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">CREATE&lt;/span> &lt;span style="color:#ff79c6">TABLE&lt;/span> phone
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> id &lt;span style="color:#8be9fd;font-style:italic">int&lt;/span>(&lt;span style="color:#bd93f9">11&lt;/span>) UNSIGNED AUTO_INCREMENT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> &lt;span style="color:#ff79c6">PRIMARY&lt;/span> &lt;span style="color:#ff79c6">KEY&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> uid &lt;span style="color:#8be9fd;font-style:italic">int&lt;/span>(&lt;span style="color:#bd93f9">11&lt;/span>) UNSIGNED &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> phone &lt;span style="color:#8be9fd;font-style:italic">char&lt;/span>(&lt;span style="color:#bd93f9">10&lt;/span>) &lt;span style="color:#ff79c6">NOT&lt;/span> &lt;span style="color:#ff79c6">NULL&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8&lt;/span>&lt;span> ENGINE &lt;span style="color:#ff79c6">=&lt;/span> InnoDB;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>mysql的主键带有一个主键索引,在创建表的时候已经建立
+在简单地查询中使用索引&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">EXPLAIN&lt;/span> &lt;span style="color:#ff79c6">SELECT&lt;/span> name &lt;span style="color:#ff79c6">FROM&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-a5bef2ac26b7d4de.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-a5bef2ac26b7d4de.webp" alt="" />
+&lt;/a>
+&lt;/div>
+&lt;/p>
+&lt;hr>
+&lt;p>这时候并没有使用索引,因为我们没有加限制条件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">EXPLAIN&lt;/span> &lt;span style="color:#ff79c6">SELECT&lt;/span> name &lt;span style="color:#ff79c6">FROM&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span> &lt;span style="color:#ff79c6">WHERE&lt;/span> id&lt;span style="color:#ff79c6">=&lt;/span>&lt;span style="color:#bd93f9">1&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="这时候索引已经起作用了是const类型">&lt;a href="#%e8%bf%99%e6%97%b6%e5%80%99%e7%b4%a2%e5%bc%95%e5%b7%b2%e7%bb%8f%e8%b5%b7%e4%bd%9c%e7%94%a8%e4%ba%86%e6%98%afconst%e7%b1%bb%e5%9e%8b" class="header-anchor">&lt;/a>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-06b62ce70025a61e.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-06b62ce70025a61e.webp" alt="" />
+&lt;/a>
+&lt;/div>
+这时候索引已经起作用了,是const类型
+&lt;/h2>&lt;p>再来看另一种情况&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">EXPLAIN&lt;/span> &lt;span style="color:#ff79c6">SELECT&lt;/span> id &lt;span style="color:#ff79c6">FROM&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span> &lt;span style="color:#ff79c6">WHERE&lt;/span> id&lt;span style="color:#ff79c6">+&lt;/span>&lt;span style="color:#bd93f9">1&lt;/span> &lt;span style="color:#ff79c6">=&lt;/span>&lt;span style="color:#bd93f9">2&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/h3622259-f03fd5add3482ca7.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/h3622259-f03fd5add3482ca7.webp" alt="" />
+&lt;/a>
+&lt;/div>
+这时候虽然使用了索引,但是索引类型是&lt;strong>index&lt;/strong>类型,效果大打折扣&lt;/p>
+&lt;hr>
+&lt;p>给user表中的name字段加上索引&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">ALTER&lt;/span> &lt;span style="color:#ff79c6">TABLE&lt;/span> &lt;span style="color:#ff79c6">`&lt;/span>&lt;span style="color:#ff79c6">user&lt;/span>&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#ff79c6">ADD&lt;/span> &lt;span style="color:#ff79c6">INDEX&lt;/span> &lt;span style="color:#ff79c6">`&lt;/span>_name&lt;span style="color:#ff79c6">`&lt;/span>(&lt;span style="color:#ff79c6">`&lt;/span>name&lt;span style="color:#ff79c6">`&lt;/span>) &lt;span style="color:#ff79c6">USING&lt;/span> BTREE;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用LIKE模糊查询&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">EXPLAIN&lt;/span> &lt;span style="color:#ff79c6">SELECT&lt;/span> name &lt;span style="color:#ff79c6">FROM&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span> &lt;span style="color:#ff79c6">WHERE&lt;/span> name &lt;span style="color:#ff79c6">LIKE&lt;/span> &lt;span style="color:#f1fa8c">&amp;#39;王%&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-a661ea65c51ce443.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-a661ea65c51ce443.webp" alt="" />
+&lt;/a>
+&lt;/div>
+可以看到,使用了索引,类型为&lt;strong>range&lt;/strong>
+换个匹配方式试试&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">EXPLAIN&lt;/span> &lt;span style="color:#ff79c6">SELECT&lt;/span> name &lt;span style="color:#ff79c6">FROM&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span> &lt;span style="color:#ff79c6">WHERE&lt;/span> name &lt;span style="color:#ff79c6">LIKE&lt;/span> &lt;span style="color:#f1fa8c">&amp;#39;%王&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-efde0793cef75d20.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-efde0793cef75d20.webp" alt="" />
+&lt;/a>
+&lt;/div>
+这时候,虽然使用了索引,但是索引类型是&lt;strong>index&lt;/strong>,全局索引扫描,效率是很低的.&lt;/p>
+&lt;hr>
+&lt;p>再来试一下&lt;code>OR&lt;/code>连接查询&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">EXPLAIN&lt;/span> &lt;span style="color:#ff79c6">SELECT&lt;/span> id,uid &lt;span style="color:#ff79c6">FROM&lt;/span> phone &lt;span style="color:#ff79c6">WHERE&lt;/span> id&lt;span style="color:#ff79c6">=&lt;/span>&lt;span style="color:#bd93f9">1&lt;/span> &lt;span style="color:#ff79c6">or&lt;/span> id &lt;span style="color:#ff79c6">=&lt;/span>&lt;span style="color:#bd93f9">2&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="使用了索引是range类型">&lt;a href="#%e4%bd%bf%e7%94%a8%e4%ba%86%e7%b4%a2%e5%bc%95%e6%98%afrange%e7%b1%bb%e5%9e%8b" class="header-anchor">&lt;/a>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e9fc7f184a08e019.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e9fc7f184a08e019.webp" alt="" />
+&lt;/a>
+&lt;/div>
+使用了索引,是&lt;strong>range&lt;/strong>类型
+&lt;/h2>&lt;p>再来试一下 &lt;code>IN&lt;/code>约束查询,这两次查询结果是相同的&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">EXPLAIN&lt;/span> &lt;span style="color:#ff79c6">SELECT&lt;/span> id,uid &lt;span style="color:#ff79c6">FROM&lt;/span> phone &lt;span style="color:#ff79c6">WHERE&lt;/span> id &lt;span style="color:#ff79c6">IN&lt;/span> (&lt;span style="color:#bd93f9">1&lt;/span>,&lt;span style="color:#bd93f9">2&lt;/span>)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-965281ff28d4c682.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-965281ff28d4c682.webp" alt="" />
+&lt;/a>
+&lt;/div>
+同样,使用了索引,是&lt;strong>range&lt;/strong>类型&lt;/p>
+&lt;hr>
+&lt;p>再来试一下&lt;code> OR&lt;/code>查询的另一种情况&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">EXPLAIN&lt;/span> &lt;span style="color:#ff79c6">SELECT&lt;/span> id,uid &lt;span style="color:#ff79c6">FROM&lt;/span> phone &lt;span style="color:#ff79c6">WHERE&lt;/span> id &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#bd93f9">1&lt;/span> &lt;span style="color:#ff79c6">OR&lt;/span> uid&lt;span style="color:#ff79c6">=&lt;/span>&lt;span style="color:#bd93f9">2&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="这时候会发现竟然没有使用索引type是all因为这次or的连个字段只有id有索引uid没有索引所以在查询的时候就会放弃使用索引使用全局扫描">&lt;a href="#%e8%bf%99%e6%97%b6%e5%80%99%e4%bc%9a%e5%8f%91%e7%8e%b0%e7%ab%9f%e7%84%b6%e6%b2%a1%e6%9c%89%e4%bd%bf%e7%94%a8%e7%b4%a2%e5%bc%95type%e6%98%afall%e5%9b%a0%e4%b8%ba%e8%bf%99%e6%ac%a1or%e7%9a%84%e8%bf%9e%e4%b8%aa%e5%ad%97%e6%ae%b5%e5%8f%aa%e6%9c%89id%e6%9c%89%e7%b4%a2%e5%bc%95uid%e6%b2%a1%e6%9c%89%e7%b4%a2%e5%bc%95%e6%89%80%e4%bb%a5%e5%9c%a8%e6%9f%a5%e8%af%a2%e7%9a%84%e6%97%b6%e5%80%99%e5%b0%b1%e4%bc%9a%e6%94%be%e5%bc%83%e4%bd%bf%e7%94%a8%e7%b4%a2%e5%bc%95%e4%bd%bf%e7%94%a8%e5%85%a8%e5%b1%80%e6%89%ab%e6%8f%8f" class="header-anchor">&lt;/a>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-5c792ec825ccf6c0.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-5c792ec825ccf6c0.webp" alt="" />
+&lt;/a>
+&lt;/div>
+这时候会发现,竟然没有使用索引,type是&lt;strong>ALL&lt;/strong>,因为这次OR的连个字段只有id有索引,uid没有索引,所以在查询的时候就会放弃使用索引,使用全局扫描.
+&lt;/h2>&lt;p>这种情况是可以使用union 连接查询优化的&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">EXPLAIN&lt;/span> &lt;span style="color:#ff79c6">SELECT&lt;/span> id
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> &lt;span style="color:#ff79c6">FROM&lt;/span> phone
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">WHERE&lt;/span> id &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#bd93f9">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> &lt;span style="color:#ff79c6">UNION&lt;/span> &lt;span style="color:#ff79c6">ALL&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span> &lt;span style="color:#ff79c6">SELECT&lt;/span> uid
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> &lt;span style="color:#ff79c6">FROM&lt;/span> phone
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span> &lt;span style="color:#ff79c6">WHERE&lt;/span> uid &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#bd93f9">2&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="我们可以看到在查询id时使用里索引查询uid时因为uid没有索引所以没有使用索引">&lt;a href="#%e6%88%91%e4%bb%ac%e5%8f%af%e4%bb%a5%e7%9c%8b%e5%88%b0%e5%9c%a8%e6%9f%a5%e8%af%a2id%e6%97%b6%e4%bd%bf%e7%94%a8%e9%87%8c%e7%b4%a2%e5%bc%95%e6%9f%a5%e8%af%a2uid%e6%97%b6%e5%9b%a0%e4%b8%bauid%e6%b2%a1%e6%9c%89%e7%b4%a2%e5%bc%95%e6%89%80%e4%bb%a5%e6%b2%a1%e6%9c%89%e4%bd%bf%e7%94%a8%e7%b4%a2%e5%bc%95" class="header-anchor">&lt;/a>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-85b3be2f85dea62f.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-85b3be2f85dea62f.webp" alt="" />
+&lt;/a>
+&lt;/div>
+我们可以看到,在查询id时使用里索引,查询uid时,因为uid没有索引,所以没有使用索引.
+&lt;/h2>&lt;p>再来看一下很常用的连接查询,&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">EXPLAIN&lt;/span> &lt;span style="color:#ff79c6">SELECT&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span>.id, name, uid, phone
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> &lt;span style="color:#ff79c6">FROM&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">JOIN&lt;/span> phone &lt;span style="color:#ff79c6">ON&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span>.id &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#bd93f9">1&lt;/span> &lt;span style="color:#ff79c6">AND&lt;/span> uid &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#bd93f9">2&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-45086730559bde4f.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-45086730559bde4f.webp" alt="" />
+&lt;/a>
+&lt;/div>
+(在使用连接查询的时候尽量使用&lt;strong>join&lt;/strong>,不要使用&lt;strong>left join&lt;/strong> 和 &lt;strong>right join&lt;/strong>,在使用join查询的时候,mysql解析器会自动选择用小表驱动大表,这样可以提高查询效率,如果使用left join或者right join会指定驱动表,有时候会降低查询效率)
+这时候只有在查询user表时使用了索引,在查询phone表时没有使用索引.因为在&lt;code>ON&lt;/code>的约束条件中,id是有索引的,而uid没有索引,所以在查询的时候不会使用索引.
+这时候给uid字段加上索引,看看效果.
+添加索引&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">ALTER&lt;/span> &lt;span style="color:#ff79c6">TABLE&lt;/span> &lt;span style="color:#ff79c6">`&lt;/span>phone&lt;span style="color:#ff79c6">`&lt;/span> &lt;span style="color:#ff79c6">ADD&lt;/span> &lt;span style="color:#ff79c6">INDEX&lt;/span> &lt;span style="color:#ff79c6">`&lt;/span>_uid&lt;span style="color:#ff79c6">`&lt;/span>(&lt;span style="color:#ff79c6">`&lt;/span>uid&lt;span style="color:#ff79c6">`&lt;/span>) &lt;span style="color:#ff79c6">USING&lt;/span> BTREE;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>跟刚才一样,使用连接查询&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">EXPLAIN&lt;/span> &lt;span style="color:#ff79c6">SELECT&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span>.id, name, uid, phone
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> &lt;span style="color:#ff79c6">FROM&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span> &lt;span style="color:#ff79c6">JOIN&lt;/span> phone &lt;span style="color:#ff79c6">ON&lt;/span> &lt;span style="color:#ff79c6">user&lt;/span>.id &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#bd93f9">1&lt;/span> &lt;span style="color:#ff79c6">AND&lt;/span> uid &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#bd93f9">2&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>
+&lt;div class="post-img-view">
+&lt;a data-fancybox="gallery" href="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e2dfc28562c9c731.webp">
+&lt;img src="https://cdn.jsdelivr.net/gh/lqxhub/images@master/blog/3622259-e2dfc28562c9c731.webp" alt="" />
+&lt;/a>
+&lt;/div>
+这时候可以看到,查询user表和phone表时,都使用了索引。&lt;/p>
+&lt;h2 id="总结">&lt;a href="#%e6%80%bb%e7%bb%93" class="header-anchor">&lt;/a>总结
+&lt;/h2>&lt;ul>
+&lt;li>在有限制条件(&lt;code>WHERE,ON&lt;/code>)的的查询中,对约束字段尽量都加上索引.在数据量很大的时候,提升查询效率特别明显&lt;/li>
+&lt;li>不要在约束条件上进行运算,在查询中对索引字段进行运算,会使用index索引,效果大打折扣&lt;/li>
+&lt;li>在使用&lt;code>LIKE&lt;/code> 模糊匹配时,尽量用&lt;code> 'XXX%'&lt;/code>,不要使用&lt;code>'%XXX'&lt;/code>&lt;/li>
+&lt;li>在经常删除、更新数据的字段和数据量不大的时候(网上说小于百万,因为我没有试验过,不能确定),没有必要使用索引,因为索引会占据磁盘空间,而且也会降低插入和更新数据的效率。&lt;/li>
+&lt;li>在查询中不会使用约束条件的字段也不用加索引,比如在例子中,从来没有对phone表中的phone字段使用过&lt;code> WHERE&lt;/code>和&lt;code>ON&lt;/code>条件,所以没有必要给phone字段加索引。&lt;/li>
+&lt;li>查询中,使用&lt;code>OR&lt;/code>约束条件时,OR两边的字段都必须有索引,如果只有一边的字段有索引,可以使用&lt;code>union&lt;/code>连接查询提高效率。&lt;/li>
+&lt;li>在连接查询中，对两个表的关联字段加上索引，可以有效地提高查询效率。&lt;/li>
+&lt;li>NULL会导致索引形同虚设，所以在设计表结构时应避免NULL 的存在（用其他方式表达你想表达的NULL，比如 -1？）&lt;/li>
+&lt;/ul>
+&lt;h2 id="最后感谢在网上无私分享的前辈们">&lt;a href="#%e6%9c%80%e5%90%8e%e6%84%9f%e8%b0%a2%e5%9c%a8%e7%bd%91%e4%b8%8a%e6%97%a0%e7%a7%81%e5%88%86%e4%ba%ab%e7%9a%84%e5%89%8d%e8%be%88%e4%bb%ac" class="header-anchor">&lt;/a>最后感谢在网上无私分享的前辈们
+&lt;/h2>&lt;p>我也是刚刚在学习mysql优化方面的知识,一边学习,一边总结,文中如果有错误的地方,还请各位大神批评指正&lt;/p></description></item><item><title>mysql索引的使用和优化</title><link>https://lqxhub.github.io/posts/82773ef8/</link><pubDate>Thu, 25 Oct 2018 09:46:12 +0000</pubDate><guid>https://lqxhub.github.io/posts/82773ef8/</guid><description>&lt;p>索引是一种特殊的文件(InnoDB 数据表上的索引是表空间的一个组成部分)，它们包含着对数据表里的所有记录的引用指针。更通俗的说，数据库索引就好比一本书的目录，能够加快数据库的查询速度。
+&lt;strong>首先感谢网上的那些前辈和大神们的无私分享&lt;/strong>
+最近在学习mysql的优化问题,在查询中正确使用索引,对查询效率的提升有非常大的帮助,使用不当会使索引失效,起不到索引该有的作用。把这两天学到的知识记录一下。&lt;/p>
+&lt;h2 id="使用索引的优势">&lt;a href="#%e4%bd%bf%e7%94%a8%e7%b4%a2%e5%bc%95%e7%9a%84%e4%bc%98%e5%8a%bf" class="header-anchor">&lt;/a>使用索引的优势
+&lt;/h2>&lt;blockquote>
+&lt;ol>
+&lt;li>提高数据的检索速度，降低数据库IO成本：使用索引的意义就是通过缩小表中需要查询的记录的数目从而加快搜索的速度。&lt;/li>
+&lt;li>降低数据排序的成本，降低CPU消耗：索引之所以查的快，是因为先将数据排好序，若该字段正好需要排序，则真好降低了排序的成本。&lt;/li>
+&lt;/ol>
+&lt;/blockquote>
+&lt;h2 id="使用索引带来的问题">&lt;a href="#%e4%bd%bf%e7%94%a8%e7%b4%a2%e5%bc%95%e5%b8%a6%e6%9d%a5%e7%9a%84%e9%97%ae%e9%a2%98" class="header-anchor">&lt;/a>使用索引带来的问题
+&lt;/h2>&lt;blockquote>
+&lt;p>1.占用存储空间：索引实际上也是一张表，记录了主键与索引字段，一般以索引文件的形式存储在磁盘上。
+2. 降低更新表的速度：表的数据发生了变化，对应的索引也需要一起变更，从而减低的更新速度。否则索引指向的物理数据可能不对，这也是索引失效的原因之一。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="索引的类型">&lt;a href="#%e7%b4%a2%e5%bc%95%e7%9a%84%e7%b1%bb%e5%9e%8b" class="header-anchor">&lt;/a>索引的类型
+&lt;/h2>&lt;blockquote>
+&lt;p>&lt;strong>1.normal：&lt;/strong>
+表示普通索引,它没有任何限制，MyISAM 中默认的 B-tree 类型的索引
+&lt;strong>2.unique：&lt;/strong>
+表示唯一的，不允许重复的索引，但是允许有空值。如果该字段信息保证不会重复例如身份证号用作索引时，可设置为unique。
+&lt;strong>3.full textl:&lt;/strong>
+表示全文搜索的索引。 FULLTEXT 用于搜索很长一篇文章的时候，效果最好。注意仅 MyISAM 引擎支持
+&lt;strong>4.组合索引（最左前缀）&lt;/strong>
+平时用的SQL查询语句一般都有比较多的限制条件，所以为了进一步榨取MySQL的效率，就要考虑建立组合索引。使用组合索引时注意最左匹配原则。
+比如新建索引&lt;code>ALTER TABLE testADD INDEX 'id_name_age' ('id','name','age')&lt;/code>。
+在查询的时&lt;code>SELECT * FROM user WHERE id =1 AND name='bruce'&lt;/code>索引起作用。
+但是查询时&lt;code>SELECT * FROM user WHERE name='bruce' AND age = 18&lt;/code>这时候索引不起作用。
+至于原因,因为辅助索引是B+树实现的，虽然可以指定多个列，但是每个列的比较优先级不一样，写在前面的优先比较。一旦出现遗漏，在B+树上就无法继续搜索了（通过补齐等措施解决的除外），因此是按照最左连续匹配来的。既然是在B+树上搜索，对于条件的比较自然是要求精确匹配（即&amp;quot;=&amp;ldquo;和&amp;quot;IN&amp;rdquo;）。不过顺序倒是可以颠倒，因为查询优化器重排序一下就好了。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="索引的优化">&lt;a href="#%e7%b4%a2%e5%bc%95%e7%9a%84%e4%bc%98%e5%8c%96" class="header-anchor">&lt;/a>索引的优化
+&lt;/h2>&lt;blockquote>
+&lt;ul>
+&lt;li>应尽量避免在 where 子句中对字段进行 null 值判断，否则将导致引擎放弃使用索引而进行全表扫描，如：
+select id from t where num is null,可以在num上设置默认值0，确保表中num列没有null值，然后这样查询：
+select id from t where num=0&lt;/li>
+&lt;li>应尽量避免在 where 子句中使用!=或&amp;lt;&amp;gt;操作符，否则将引擎放弃使用索引而进行全表扫描。优化器将无法通过索引来确定将要命中的行数,因此需要搜索该表的所有行。&lt;/li>
+&lt;li>应尽量避免在 where 子句中使用 or 来连接条件，否则将导致引擎放弃使用索引而进行全表扫描，如：
+select id from t where num=10 or num=20&lt;/li>
+&lt;li>尽量避免在索引过的字符数据中，使用非打头字母搜索。这也使得引擎无法利用索引。
+见如下例子：
+SELECT * FROM T1 WHERE NAME LIKE ‘%L%’
+SELECT * FROM T1 WHERE SUBSTING(NAME,2,1)=’L’
+SELECT * FROM T1 WHERE NAME LIKE ‘L%’&lt;/li>
+&lt;li>应尽量避免在 where 子句中对字段进行表达式操作，这将导致引擎放弃使用索引而进行全表扫描&lt;/li>
+&lt;li>应尽量避免在where子句中对字段进行函数操作，这将导致引擎放弃使用索引而进行全表扫描&lt;/li>
+&lt;li>不要在 where 子句中的“=”左边进行函数、算术运算或其他表达式运算，否则系统将可能无法正确使用索引&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="总结">&lt;a href="#%e6%80%bb%e7%bb%93" class="header-anchor">&lt;/a>总结
+&lt;/h2>&lt;p>&lt;strong>哪些情况需要建索引：&lt;/strong>&lt;/p>
+&lt;blockquote>
+&lt;p>1 主键，唯一索引
+2 经常用作查询条件的字段需要创建索引
+3 经常需要排序、分组和统计的字段需要建立索引
+4 查询中与其他表关联的字段，外键关系建立索引&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>哪些情况不要建索引：&lt;/strong>&lt;/p>
+&lt;blockquote>
+&lt;p>1 表的记录太少，百万级以下的数据不需要创建索引,数据量很少的时候,索引带来的提升不够明显
+2 经常增删改的表不需要创建索引(在修改表的内容时，索引必须进行更新，有时可能需要重构，因此，索引越多，所花的时间越长。)
+3 数据重复且分布平均的字段不需要创建索引，如 true,false 之类。(体现不出索引带来的价值)
+4 频发更新的字段不适合创建索引(和2同理)
+5 where条件里用不到的字段不需要创建索引(索引起不到作用)&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>使用注意:&lt;/strong>&lt;/p>
+&lt;blockquote>
+&lt;ul>
+&lt;li>性能优化过程中，选择在哪个列上创建索引是最重要的步骤之一。可以考虑使用索引的主要有两种类型的列：在where子句中出现的列，在join子句中出现的列。&lt;/li>
+&lt;li>考虑列中值的分布，索引的列的基数越大，索引的效果越好。&lt;/li>
+&lt;li>使用短索引，如果对字符串列进行索引，应该指定一个前缀长度，可节省大量索引空间，提升查询速度。&lt;/li>
+&lt;li>不要过度索引，只保持所需的索引。每个额外的索引都要占用额外的磁盘空间，并降低写操作的性能。&lt;/li>
+&lt;li>在修改表的内容时，索引必须进行更新，有时可能需要重构，因此，索引越多，所花的时间越长。&lt;/li>
+&lt;li>MySQL只对一下操作符才使用索引：&amp;lt;,&amp;lt;=,=,&amp;gt;,&amp;gt;=,between,in, 以及某些时候的like(不以通配符%或_开头的情形)。&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="再次感谢前辈们的无私分享">&lt;a href="#%e5%86%8d%e6%ac%a1%e6%84%9f%e8%b0%a2%e5%89%8d%e8%be%88%e4%bb%ac%e7%9a%84%e6%97%a0%e7%a7%81%e5%88%86%e4%ba%ab" class="header-anchor">&lt;/a>再次感谢前辈们的无私分享
+&lt;/h2>&lt;p>我也是在学习中,文中如有错误的地方,欢迎在评论区指出,方便共同学习&lt;/p></description></item></channel></rss>

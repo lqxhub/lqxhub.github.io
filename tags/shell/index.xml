@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Shell on QX 的笔记</title><link>https://lqxhub.github.io/tags/shell/</link><description>Recent content in Shell on QX 的笔记</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 13 Mar 2021 11:27:54 +0000</lastBuildDate><atom:link href="https://lqxhub.github.io/tags/shell/index.xml" rel="self" type="application/rss+xml"/><item><title>linux shell 脚本 常用的if判断条件</title><link>https://lqxhub.github.io/posts/6cd27815/</link><pubDate>Sat, 13 Mar 2021 11:27:54 +0000</pubDate><guid>https://lqxhub.github.io/posts/6cd27815/</guid><description>&lt;p>工作中经常需要写shell脚本来处理一些重复的东西，使用脚本自动编译，使用脚本多机器传输文件。&lt;/p>
+&lt;p>因为不是天天写shell，只是用到的时候写一个，再加上脚本中的if的判断条件有点多，容易忘记，所以做个备忘录，以备不时之需&lt;/p>
+&lt;h2 id="先说一下-if-表达式的基本语法">&lt;a href="#%e5%85%88%e8%af%b4%e4%b8%80%e4%b8%8b-if-%e8%a1%a8%e8%be%be%e5%bc%8f%e7%9a%84%e5%9f%ba%e6%9c%ac%e8%af%ad%e6%b3%95" class="header-anchor">&lt;/a>先说一下 if 表达式的基本语法
+&lt;/h2>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">if&lt;/span> &lt;span style="color:#ff79c6">[&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">command&lt;/span> &lt;span style="color:#ff79c6">]&lt;/span>; &lt;span style="color:#ff79c6">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> 符合该条件执行的语句
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1&lt;/span>&lt;span>&lt;span style="color:#ff79c6">if&lt;/span> &lt;span style="color:#ff79c6">[&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">command&lt;/span> &lt;span style="color:#ff79c6">]&lt;/span>;&lt;span style="color:#ff79c6">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2&lt;/span>&lt;span> 符合该条件执行的语句
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3&lt;/span>&lt;span>&lt;span style="color:#ff79c6">elif&lt;/span> &lt;span style="color:#ff79c6">[&lt;/span> &lt;span style="color:#8be9fd;font-style:italic">command&lt;/span> &lt;span style="color:#ff79c6">]&lt;/span>;&lt;span style="color:#ff79c6">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4&lt;/span>&lt;span> 符合该条件执行的语句
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5&lt;/span>&lt;span>&lt;span style="color:#ff79c6">else&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6&lt;/span>&lt;span> 符合该条件执行的语句
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7&lt;/span>&lt;span>&lt;span style="color:#ff79c6">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>注意：&lt;/strong>&lt;/p>
+&lt;ol>
+&lt;li>if 条件 要以 &lt;code>fi&lt;/code> 结束&lt;/li>
+&lt;li>&lt;code>[]&lt;/code> if语句中 和 表达式要注意空格&lt;/li>
+&lt;li>&lt;code>then&lt;/code> 和 &lt;code>fi&lt;/code> 是分开的语句。如果要在同一行里面输入，则需要用分号将他们隔开&lt;/li>
+&lt;li>使用 &lt;code>-z&lt;/code> 或者 &lt;code>-n&lt;/code> 来检查长度的时候，没有定义的变量也为0&lt;/li>
+&lt;/ol>
+&lt;h2 id="下面是常用表达式">&lt;a href="#%e4%b8%8b%e9%9d%a2%e6%98%af%e5%b8%b8%e7%94%a8%e8%a1%a8%e8%be%be%e5%bc%8f" class="header-anchor">&lt;/a>下面是常用表达式
+&lt;/h2>&lt;h3 id="数字判断">&lt;a href="#%e6%95%b0%e5%ad%97%e5%88%a4%e6%96%ad" class="header-anchor">&lt;/a>数字判断
+&lt;/h3>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>表达式&lt;/th>
+&lt;th>含义&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>int1 -eq int2&lt;/td>
+&lt;td>两数相等为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>int1 -ne int2&lt;/td>
+&lt;td>两数不等为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>int1 -gt int2&lt;/td>
+&lt;td>int1大于int2为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>int1 -ge int2&lt;/td>
+&lt;td>int1大于等于int2为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>int1 -lt int2&lt;/td>
+&lt;td>int1小于int2为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>int1 -le int2&lt;/td>
+&lt;td>int1小于等于int2为真&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="逻辑相关">&lt;a href="#%e9%80%bb%e8%be%91%e7%9b%b8%e5%85%b3" class="header-anchor">&lt;/a>逻辑相关
+&lt;/h3>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>表达式&lt;/th>
+&lt;th>含义&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>-a&lt;/td>
+&lt;td>与&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-o　&lt;/td>
+&lt;td>或&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>!&lt;/td>
+&lt;td>　非&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="字符串相关">&lt;a href="#%e5%ad%97%e7%ac%a6%e4%b8%b2%e7%9b%b8%e5%85%b3" class="header-anchor">&lt;/a>字符串相关
+&lt;/h3>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>表达式&lt;/th>
+&lt;th>含义&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>STRING　&lt;/td>
+&lt;td>当串str1为非空时为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-z STRING&lt;/td>
+&lt;td>“STRING” 的长度为零则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-n STRING&lt;/td>
+&lt;td>“STRING” 的长度为非零 non-zero则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>STRING1 == STRING2&lt;/td>
+&lt;td>如果2个字符串相同则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>STRING1 != STRING2&lt;/td>
+&lt;td>如果字符串不相等则为&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="文件相关">&lt;a href="#%e6%96%87%e4%bb%b6%e7%9b%b8%e5%85%b3" class="header-anchor">&lt;/a>文件相关
+&lt;/h3>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>表达式&lt;/th>
+&lt;th>含义&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>-a FILE&lt;/td>
+&lt;td>如果 FILE 存在则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-b FILE&lt;/td>
+&lt;td>如果 FILE 存在且是一个块特殊文件则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-c FILE&lt;/td>
+&lt;td>如果 FILE 存在且是一个字特殊文件则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-d FILE&lt;/td>
+&lt;td>如果 FILE 存在且是一个目录则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-e FILE&lt;/td>
+&lt;td>如果 FILE 存在则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-f FILE&lt;/td>
+&lt;td>如果 FILE 存在且是一个普通文件则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-g FILE&lt;/td>
+&lt;td>如果 FILE 存在且已经设置了SGID则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-h FILE&lt;/td>
+&lt;td>如果 FILE 存在且是一个符号连接则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-k FILE&lt;/td>
+&lt;td>如果 FILE 存在且已经设置了粘制位则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-p FILE&lt;/td>
+&lt;td>如果 FILE 存在且是一个名字管道(F如果O)则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-r FILE&lt;/td>
+&lt;td>如果 FILE 存在且是可读的则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-s FILE&lt;/td>
+&lt;td>如果 FILE 存在且大小不为0则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-t FD&lt;/td>
+&lt;td>如果文件描述符 FD 打开且指向一个终端则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-u FILE&lt;/td>
+&lt;td>如果 FILE 存在且设置了SUID (set user ID)则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-w FILE&lt;/td>
+&lt;td>如果 FILE 如果 FILE 存在且是可写的则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-x FILE&lt;/td>
+&lt;td>如果 FILE 存在且是可执行的则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-O FILE&lt;/td>
+&lt;td>如果 FILE 存在且属有效用户ID则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-G FILE&lt;/td>
+&lt;td>如果 FILE 存在且属有效用户组则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-L FILE&lt;/td>
+&lt;td>如果 FILE 存在且是一个符号连接则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-S FILE&lt;/td>
+&lt;td>如果 FILE 存在且是一个套接字则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>FILE1 -ot FILE2&lt;/td>
+&lt;td>如果 FILE1 比 FILE2 要老, 或者 FILE2 存在且 FILE1 不存在则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>FILE1 -ef FILE2&lt;/td>
+&lt;td>如果 FILE1 和 FILE2 指向相同的设备和节点号则为真&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>-o OPTIONNAME&lt;/td>
+&lt;td>如果 shell选项 “OPTIONNAME” 开启则为真&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table></description></item></channel></rss>
